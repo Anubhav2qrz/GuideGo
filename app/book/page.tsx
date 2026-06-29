@@ -160,7 +160,7 @@ function BookingContent() {
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Name on Card</label>
-                      <input type="text" placeholder="John Doe" className="h-12 w-full rounded-xl border bg-background px-4 text-sm outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20" />
+                      <input type="text" placeholder="Name" className="h-12 w-full rounded-xl border bg-background px-4 text-sm outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20" />
                     </div>
                   </div>
                   

@@ -8,6 +8,7 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { Badge } from "@/components/ui/badge";
 import { guides } from "@/lib/mock-data";
 import { formatPrice } from "@/lib/utils";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const tabs = [
   { name: "Upcoming Bookings", icon: Calendar, active: true },
@@ -18,7 +19,10 @@ const tabs = [
 ];
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const upcomingBooking = guides[0];
+  
+  const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || "Traveler";
   
   return (
     <div className="min-h-screen pt-24 pb-16 bg-muted/20">
@@ -26,7 +30,7 @@ export default function DashboardPage() {
         <ScrollReveal>
           <div className="mb-8">
             <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome back, John! You have 1 upcoming trip.</p>
+            <p className="text-muted-foreground mt-1">Welcome back, {userName}! You have 1 upcoming trip.</p>
           </div>
         </ScrollReveal>
 

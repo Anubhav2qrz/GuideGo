@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -58,8 +59,8 @@ export function Navbar() {
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-blue text-white transition-transform group-hover:scale-105">
-              <MapPin className="h-5 w-5" />
+            <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl transition-transform group-hover:scale-105">
+              <Image src="/logo.png" alt="GuideGo Logo" fill className="object-cover" />
             </div>
             <span className="text-xl font-bold tracking-tight">
               Guide<span className="text-brand-blue">Go</span>
@@ -176,8 +177,8 @@ export function Navbar() {
                   className="flex items-center gap-2"
                   onClick={() => setIsMobileOpen(false)}
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-blue text-white">
-                    <MapPin className="h-4 w-4" />
+                  <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg">
+                    <Image src="/logo.png" alt="GuideGo Logo" fill className="object-cover" />
                   </div>
                   <span className="text-lg font-bold">
                     Guide<span className="text-brand-blue">Go</span>
