@@ -1,27 +1,114 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Calendar, Clock, Users, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
-import { guides } from "@/lib/mock-data";
 import { formatPrice } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
+import { Guide } from "@/types";
 
 function BookingContent() {
   const searchParams = useSearchParams();
-  const guideSlug = searchParams?.get("guide");
-  const guide = guides.find((g) => g.slug === guideSlug) || guides[0]; // Fallback to first guide if not found
+  const router = useRouter();
+  const guideId = searchParams?.get("guide");
+  const { user } = useAuth();
+  
+  const [guide, setGuide] = useState<Guide | null>(null);
+  const [isLoadingGuide, setIsLoadingGuide] = useState(true);
   
   const [step, setStep] = useState(1);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [guests, setGuests] = useState("2");
   const [hours, setHours] = useState("4");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchGuide() {
+      if (!guideId) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', guideId)
+        .single();
+        
+      if (data) {
+        setGuide({
+          id: data.id,
+          name: data.full_name,
+          slug: data.id,
+          avatar: data.avatar_url,
+          coverImage: data.cover_image,
+          bio: data.bio,
+          languages: data.languages || [],
+          rating: data.rating,
+          reviewCount: data.reviews,
+          experience: data.experience,
+          hourlyRate: data.hourly_rate,
+          specialties: data.specialties || [],
+          city: data.city,
+          citySlug: data.city.toLowerCase().replace(" ", "-"),
+          availability: true,
+          verified: data.verified,
+          gallery: [],
+          tourCategories: [],
+        });
+      }
+      setIsLoadingGuide(false);
+    }
+    fetchGuide();
+  }, [guideId]);
   
+  if (isLoadingGuide) {
+    return <div className="min-h-screen pt-32 text-center text-muted-foreground">Loading guide details...</div>;
+  }
+  
+  if (!guide) {
+    return <div className="min-h-screen pt-32 text-center text-destructive">Guide not found.</div>;
+  }
+
   const total = guide.hourlyRate * parseInt(hours || "0");
+  const finalTotal = total + (total * 0.1);
+
+  const handlePayment = async () => {
+    if (!user) {
+      setBookingError("You must be logged in to book a guide.");
+      return;
+    }
+    
+    setIsProcessing(true);
+    setBookingError(null);
+    
+    // Simulate payment delay
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // Insert real booking
+    const { error } = await supabase
+      .from('bookings')
+      .insert({
+        traveler_id: user.id,
+        guide_id: guide.id,
+        booking_date: date,
+        booking_time: time,
+        guests: parseInt(guests),
+        total_price: finalTotal,
+        status: 'confirmed'
+      });
+      
+    setIsProcessing(false);
+    
+    if (error) {
+      setBookingError(error.message);
+    } else {
+      setStep(3);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-muted/20 pt-24 pb-16">
@@ -29,9 +116,9 @@ function BookingContent() {
         <ScrollReveal>
           <div className="mb-8">
             <Button variant="ghost" size="sm" asChild className="mb-4">
-              <Link href={`/guides/${guide.slug}`}>
+              <Link href="/explore">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Guide Profile
+                Back to Explore
               </Link>
             </Button>
             <h1 className="text-3xl font-bold tracking-tight">Book Your Experience</h1>
@@ -70,11 +157,11 @@ function BookingContent() {
                             onChange={(e) => setTime(e.target.value)}
                           >
                             <option value="">Select time</option>
-                            <option value="09:00">09:00 AM</option>
-                            <option value="10:00">10:00 AM</option>
-                            <option value="11:00">11:00 AM</option>
-                            <option value="14:00">02:00 PM</option>
-                            <option value="15:00">03:00 PM</option>
+                            <option value="09:00:00">09:00 AM</option>
+                            <option value="10:00:00">10:00 AM</option>
+                            <option value="11:00:00">11:00 AM</option>
+                            <option value="14:00:00">02:00 PM</option>
+                            <option value="15:00:00">03:00 PM</option>
                           </select>
                         </div>
                       </div>
@@ -132,7 +219,7 @@ function BookingContent() {
               ) : step === 2 ? (
                 <div className="rounded-3xl border bg-card p-6 sm:p-8 shadow-sm">
                   <div className="flex items-center gap-4 mb-6">
-                    <Button variant="ghost" size="icon" onClick={() => setStep(1)} className="shrink-0">
+                    <Button variant="ghost" size="icon" onClick={() => setStep(1)} className="shrink-0" disabled={isProcessing}>
                       <ArrowLeft className="h-5 w-5" />
                     </Button>
                     <h2 className="text-xl font-bold">2. Payment Details</h2>
@@ -142,6 +229,12 @@ function BookingContent() {
                     <ShieldCheck className="h-5 w-5 shrink-0" />
                     <p>Your payment is secure. We use bank-level encryption to protect your data.</p>
                   </div>
+                  
+                  {bookingError && (
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 mb-6 text-sm text-destructive">
+                      {bookingError}
+                    </div>
+                  )}
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -167,9 +260,10 @@ function BookingContent() {
                   <div className="mt-8 flex justify-end">
                     <Button 
                       className="bg-brand-emerald hover:bg-emerald-600 h-12 w-full sm:w-auto px-8 text-white" 
-                      onClick={() => setStep(3)}
+                      onClick={handlePayment}
+                      disabled={isProcessing}
                     >
-                      Pay {formatPrice(total)} & Confirm Booking
+                      {isProcessing ? "Processing..." : `Pay ${formatPrice(finalTotal)} & Confirm Booking`}
                     </Button>
                   </div>
                 </div>
@@ -234,7 +328,7 @@ function BookingContent() {
                 
                 <div className="pt-4 flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span className="text-brand-blue">{formatPrice(total + (total * 0.1))}</span>
+                  <span className="text-brand-blue">{formatPrice(finalTotal)}</span>
                 </div>
               </div>
             </ScrollReveal>

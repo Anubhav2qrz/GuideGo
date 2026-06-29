@@ -1,26 +1,63 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Search, Filter, SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
 import { GuideCard } from "@/components/guides/guide-card";
-import { guides, cities } from "@/lib/mock-data";
+import { cities } from "@/lib/mock-data";
+import { supabase } from "@/lib/supabase";
+import { Guide } from "@/types";
 
 export default function GuidesPage() {
   const [search, setSearch] = useState("");
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [guides, setGuides] = useState<Guide[]>([]);
+
+  useEffect(() => {
+    async function fetchGuides() {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("role", "guide");
+
+      if (data) {
+        const mappedGuides: Guide[] = data.map((profile) => ({
+          id: profile.id,
+          name: profile.full_name,
+          slug: profile.id, // using ID as slug for MVP
+          avatar: profile.avatar_url,
+          coverImage: profile.cover_image,
+          bio: profile.bio,
+          languages: profile.languages || [],
+          rating: profile.rating,
+          reviewCount: profile.reviews,
+          experience: profile.experience,
+          hourlyRate: profile.hourly_rate,
+          specialties: profile.specialties || [],
+          city: profile.city,
+          citySlug: profile.city.toLowerCase().replace(" ", "-"),
+          availability: true,
+          verified: profile.verified,
+          gallery: [],
+          tourCategories: [],
+        }));
+        setGuides(mappedGuides);
+      }
+    }
+    fetchGuides();
+  }, []);
 
   // Extract unique languages
   const languages = useMemo(() => {
     const langs = new Set<string>();
     guides.forEach((g) => g.languages.forEach((l) => langs.add(l)));
     return Array.from(langs).sort();
-  }, []);
+  }, [guides]);
 
   const filteredGuides = useMemo(() => {
     return guides.filter((guide) => {
@@ -35,7 +72,7 @@ export default function GuidesPage() {
 
       return matchesSearch && matchesCity && matchesLanguage;
     });
-  }, [search, selectedCity, selectedLanguage]);
+  }, [search, selectedCity, selectedLanguage, guides]);
 
   return (
     <div className="min-h-screen pt-24 pb-16">
