@@ -57,8 +57,20 @@ function SignupContent() {
       }
 
       setSuccess(true);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred during sign up.");
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      let errMsg = "An error occurred during sign up.";
+      if (err?.message && err.message !== "{}") {
+        errMsg = err.message;
+      } else if (typeof err === 'string' && err !== "{}") {
+        errMsg = err;
+      } else if (err && typeof err === 'object') {
+        try {
+          const str = JSON.stringify(err);
+          if (str !== "{}") errMsg = str;
+        } catch(e) {}
+      }
+      setError(errMsg);
     } finally {
       setIsLoading(false);
     }
