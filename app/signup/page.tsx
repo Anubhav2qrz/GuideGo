@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, CheckCircle2, MapPin, IndianRupee, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -21,6 +21,9 @@ function SignupContent() {
     fullName: "",
     email: "",
     password: "",
+    city: "",
+    hourlyRate: "",
+    specialties: "",
   });
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -30,14 +33,22 @@ function SignupContent() {
     setSuccess(false);
 
     try {
+      const metadata: Record<string, unknown> = {
+        full_name: formData.fullName,
+        role: role,
+      };
+
+      if (role === "guide") {
+        metadata.city = formData.city;
+        metadata.hourly_rate = formData.hourlyRate ? parseInt(formData.hourlyRate) : 800;
+        metadata.specialties = formData.specialties;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
-          data: {
-            full_name: formData.fullName,
-            role: role,
-          },
+          data: metadata,
         },
       });
 
@@ -46,11 +57,21 @@ function SignupContent() {
       }
 
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || "An error occurred during sign up.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred during sign up.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleGoogleLogin = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
   };
 
   return (
@@ -81,7 +102,7 @@ function SignupContent() {
                 </div>
                 <h3 className="text-xl font-bold mb-2">Check your email</h3>
                 <p className="text-sm text-muted-foreground mb-6">
-                  We've sent a verification link to <strong>{formData.email}</strong>. Please verify your email to continue.
+                  We&apos;ve sent a verification link to <strong>{formData.email}</strong>. Please verify your email to continue.
                 </p>
                 <Button className="w-full bg-brand-emerald hover:bg-emerald-600 text-white" asChild>
                   <Link href="/login">Go to Login</Link>
@@ -118,6 +139,57 @@ function SignupContent() {
                     />
                   </div>
                 </div>
+
+                {role === "guide" && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">City</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Kolkata"
+                          className="h-12 w-full rounded-xl border bg-background pl-10 pr-4 text-sm outline-none transition-all focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20"
+                          value={formData.city}
+                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Hourly Rate</label>
+                        <div className="relative">
+                          <IndianRupee className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                          <input 
+                            type="number" 
+                            placeholder="800"
+                            className="h-12 w-full rounded-xl border bg-background pl-10 pr-4 text-sm outline-none transition-all focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20"
+                            value={formData.hourlyRate}
+                            onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Favourings</label>
+                        <div className="relative">
+                          <Heart className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                          <input 
+                            type="text" 
+                            placeholder="Food, History..."
+                            className="h-12 w-full rounded-xl border bg-background pl-10 pr-4 text-sm outline-none transition-all focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20"
+                            value={formData.specialties}
+                            onChange={(e) => setFormData({ ...formData, specialties: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
                 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Password</label>
