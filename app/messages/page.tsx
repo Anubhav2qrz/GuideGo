@@ -5,7 +5,6 @@ import { Send, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { supabase } from "@/lib/supabase";
-import { format } from "date-fns";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
