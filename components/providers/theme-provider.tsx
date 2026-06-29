@@ -29,6 +29,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const stored = localStorage.getItem(storageKey) as Theme | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored) setTheme(stored);
     setMounted(true);
   }, [storageKey]);
@@ -48,6 +49,7 @@ export function ThemeProvider({
     }
 
     root.classList.add(resolved);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setResolvedTheme(resolved);
   }, [theme]);
 

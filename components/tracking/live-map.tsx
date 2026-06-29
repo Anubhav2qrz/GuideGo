@@ -50,7 +50,7 @@ export default function LiveMap({ bookingId, guideId }: { bookingId: string, gui
         schema: 'public', 
         table: 'live_locations',
         filter: `booking_id=eq.${bookingId}`
-      }, (payload: any) => {
+      }, (payload: { new: Record<string, unknown> }) => {
         if (payload.new && payload.new.guide_id === guideId) {
           setPosition([payload.new.lat, payload.new.lng]);
         }
@@ -65,7 +65,7 @@ export default function LiveMap({ bookingId, guideId }: { bookingId: string, gui
   if (!position) {
     return (
       <div className="flex h-full items-center justify-center bg-muted/50 rounded-2xl border border-dashed">
-        <p className="text-muted-foreground font-medium">Waiting for guide's location signal...</p>
+        <p className="text-muted-foreground font-medium">Waiting for guide&apos;s location signal...</p>
       </div>
     );
   }
@@ -84,7 +84,7 @@ export default function LiveMap({ bookingId, guideId }: { bookingId: string, gui
       />
       <Marker position={position}>
         <Popup>
-          Guide's Live Location
+          Guide&apos;s Live Location
         </Popup>
       </Marker>
     </MapContainer>

@@ -25,7 +25,7 @@ function MessagesContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
-  const [receiverProfile, setReceiverProfile] = useState<any>(null);
+  const [receiverProfile, setReceiverProfile] = useState<{ id: string, full_name: string, avatar_url: string } | null>(null);
   const [loading, setLoading] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);

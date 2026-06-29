@@ -25,7 +25,7 @@ export default function TrackPage() {
   const params = useParams();
   const bookingId = params?.bookingId as string;
   
-  const [guideProfile, setGuideProfile] = useState<any>(null);
+  const [guideProfile, setGuideProfile] = useState<{ id: string, full_name: string, avatar_url: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default function TrackPage() {
   }
   
   if (!guideProfile) {
-    return <div className="min-h-screen pt-32 text-center text-destructive">Booking not found or you don't have access.</div>;
+    return <div className="min-h-screen pt-32 text-center text-destructive">Booking not found or you don&apos;t have access.</div>;
   }
 
   return (

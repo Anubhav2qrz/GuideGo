@@ -20,7 +20,7 @@ export default function ExplorePage() {
   const [sortBy, setSortBy] = useState<"rating" | "guides" | "price">("rating");
 
   const filtered = useMemo(() => {
-    let result = cities.filter((city) => {
+    const result = cities.filter((city) => {
       const matchesSearch =
         city.name.toLowerCase().includes(search.toLowerCase()) ||
         city.state.toLowerCase().includes(search.toLowerCase());

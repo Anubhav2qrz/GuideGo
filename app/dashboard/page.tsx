@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Calendar, MapPin, Clock, ArrowRight, Settings, CreditCard, Heart, History, LogOut } from "lucide-react";
+import { Calendar, MapPin, Clock, ArrowRight, Settings, CreditCard, Heart, History, LogOut, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +18,22 @@ const tabs = [
   { name: "Settings", icon: Settings, active: false },
 ];
 
+interface BookingRow {
+  id: string;
+  status: string;
+  booking_date: string;
+  booking_time: string;
+  guests: number;
+  total_price: number;
+  other_person?: {
+    full_name: string;
+    avatar_url: string;
+  };
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
   
   const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || "Traveler";
@@ -37,7 +50,7 @@ export default function DashboardPage() {
         .from('bookings')
         .select(`
           *,
-          other_person:profiles!bookings_${foreignTable}_fkey(id, full_name, avatar_url, city, hourly_rate)
+          other_person:profiles!${foreignTable}(id, full_name, avatar_url, city, hourly_rate)
         `)
         .eq(column, user.id)
         .order('created_at', { ascending: false });
@@ -99,7 +112,7 @@ export default function DashboardPage() {
             ) : bookings.length === 0 ? (
               <div className="rounded-3xl border bg-card p-10 text-center shadow-sm">
                 <h3 className="text-xl font-bold mb-2">No upcoming bookings</h3>
-                <p className="text-muted-foreground mb-6">Looks like you don't have any trips planned yet.</p>
+                <p className="text-muted-foreground mb-6">Looks like you don&apos;t have any trips planned yet.</p>
                 {!isGuide && (
                   <Button className="bg-brand-blue text-white" asChild>
                     <Link href="/explore">Explore Destinations</Link>
