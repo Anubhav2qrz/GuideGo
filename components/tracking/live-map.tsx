@@ -50,9 +50,10 @@ export default function LiveMap({ bookingId, guideId }: { bookingId: string, gui
         schema: 'public', 
         table: 'live_locations',
         filter: `booking_id=eq.${bookingId}`
-      }, (payload: { new: { guide_id: string, lat: number, lng: number } }) => {
-        if (payload.new && payload.new.guide_id === guideId) {
-          setPosition([payload.new.lat, payload.new.lng]);
+      }, (payload) => {
+        const newLoc = payload.new as { guide_id: string, lat: number, lng: number };
+        if (newLoc && newLoc.guide_id === guideId) {
+          setPosition([newLoc.lat, newLoc.lng]);
         }
       })
       .subscribe();
