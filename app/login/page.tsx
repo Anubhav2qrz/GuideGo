@@ -41,6 +41,16 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleLogin = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+  };
+
   return (
     <div className="min-h-screen pt-24 pb-16 flex items-center justify-center bg-muted/20">
       <div className="mx-auto w-full max-w-md px-4 sm:px-6">
