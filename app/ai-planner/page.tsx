@@ -180,7 +180,7 @@ export default function AiPlannerPage() {
                   asChild
                 >
                   <Link href="/pricing">
-                    Unlock Pro — ₹499/mo (UPI AutoPay) <ArrowRight className="ml-2 h-4 w-4" />
+                    Get 30-Day Pro Pass — ₹499 <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
 
