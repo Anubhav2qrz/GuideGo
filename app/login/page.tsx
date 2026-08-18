@@ -1,15 +1,19 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowRight, Mail, Lock, Loader2, AlertCircle } from "lucide-react";
+import { ArrowRight, Mail, Lock, Loader2, AlertCircle, Compass, User, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialRole = searchParams?.get("role") === "guide" ? "guide" : "traveler";
+  
+  const [role, setRole] = useState<"traveler" | "guide">(initialRole);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,27 +65,61 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-16 flex items-center justify-center bg-muted/20">
+    <div className="min-h-screen pt-32 pb-16 flex items-center justify-center bg-muted/20">
       <div className="mx-auto w-full max-w-md px-4 sm:px-6">
         <ScrollReveal>
-          <div className="rounded-3xl border bg-card p-8 shadow-lg">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold">Welcome back</h1>
-              <p className="text-sm text-muted-foreground mt-2">
-                Enter your credentials to access your account
+          <div className="rounded-3xl border bg-card p-6 sm:p-8 shadow-xl">
+            {/* Role Switcher Tabs */}
+            <div className="mb-6 rounded-2xl bg-muted/60 p-1.5 flex items-center gap-1 border">
+              <button
+                type="button"
+                onClick={() => setRole("traveler")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                  role === "traveler"
+                    ? "bg-card text-foreground shadow-sm border"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <User className="h-4 w-4 text-brand-blue" />
+                <span>Traveler Login</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRole("guide")}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all ${
+                  role === "guide"
+                    ? "bg-brand-emerald text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Compass className="h-4 w-4" />
+                <span>Local Guide Login</span>
+              </button>
+            </div>
+
+            {/* Header Description */}
+            <div className="text-center mb-6">
+              <h1 className="text-2xl font-bold tracking-tight">
+                {role === "guide" ? "Guide Portal Sign In" : "Welcome Back, Traveler"}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1.5">
+                {role === "guide"
+                  ? "Access your guide dashboard, scheduled tours, and direct payouts."
+                  : "Sign in to view your upcoming bookings and connect with local guides."}
               </p>
             </div>
 
             {error && (
               <div className="mb-6 rounded-xl bg-destructive/10 p-4 text-sm text-destructive flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 shrink-0" />
-                <p>{error}</p>
+                <p className="text-xs">{error}</p>
               </div>
             )}
 
             <form className="space-y-4" onSubmit={handleLogin}>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Email Address</label>
+                <label className="text-xs font-semibold text-foreground">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                   <input 
@@ -97,7 +135,7 @@ export default function LoginPage() {
               
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium">Password</label>
+                  <label className="text-xs font-semibold text-foreground">Password</label>
                   <Link href="#" className="text-xs text-brand-blue hover:underline">Forgot password?</Link>
                 </div>
                 <div className="relative">
@@ -115,7 +153,11 @@ export default function LoginPage() {
 
               <Button 
                 type="submit" 
-                className="w-full h-12 mt-6 bg-brand-blue hover:bg-brand-blue-dark text-white font-semibold"
+                className={`w-full h-12 mt-4 text-white font-semibold text-sm transition-all ${
+                  role === "guide"
+                    ? "bg-brand-emerald hover:bg-emerald-600 shadow-md"
+                    : "bg-brand-blue hover:bg-brand-blue-dark"
+                }`}
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -124,7 +166,7 @@ export default function LoginPage() {
                     Signing in...
                   </>
                 ) : (
-                  "Sign In"
+                  `Sign In as ${role === "guide" ? "Local Guide" : "Traveler"}`
                 )}
               </Button>
             </form>
@@ -141,7 +183,7 @@ export default function LoginPage() {
             <Button 
               type="button" 
               variant="outline" 
-              className="w-full h-12"
+              className="w-full h-12 text-sm"
               onClick={handleGoogleLogin}
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -166,15 +208,35 @@ export default function LoginPage() {
               Google
             </Button>
 
-            <div className="mt-6 text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link href="/signup" className="font-semibold text-brand-blue hover:underline">
-                Sign up
-              </Link>
+            {/* Clear Sign-up guidance based on active role */}
+            <div className="mt-6 pt-4 border-t text-center text-xs text-muted-foreground">
+              {role === "guide" ? (
+                <div>
+                  Don&apos;t have a guide profile yet?{" "}
+                  <Link href="/signup?role=guide" className="font-bold text-brand-emerald hover:underline">
+                    Apply as a Local Guide
+                  </Link>
+                </div>
+              ) : (
+                <div>
+                  Don&apos;t have an account?{" "}
+                  <Link href="/signup?role=traveler" className="font-bold text-brand-blue hover:underline">
+                    Sign up as a Traveler
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </ScrollReveal>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen pt-32 text-center">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
