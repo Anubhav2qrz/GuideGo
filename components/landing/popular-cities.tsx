@@ -26,7 +26,7 @@ export function PopularCities() {
         >
           {cities.map((city) => (
             <StaggerItem key={city.id}>
-              <Link href={`/explore?city=${city.slug}`} className="group block">
+              <Link href={`/guides?city=${city.slug}`} className="group block">
                 <div className="relative overflow-hidden rounded-2xl border bg-card transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
                   {/* Image */}
                   <div className="relative aspect-[4/3] overflow-hidden">
