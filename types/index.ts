@@ -92,6 +92,9 @@ export interface Booking {
   duration: number; // hours
   totalPrice: number;
   platformFee: number;
+  advanceAmount?: number;
+  remainingBalance?: number;
+  upiRef?: string;
   status: BookingStatus;
   tourType: string;
   paymentId?: string;

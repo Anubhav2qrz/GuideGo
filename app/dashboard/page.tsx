@@ -394,9 +394,16 @@ function BookingCard({ booking, role, showReviewCTA = false }: { booking: Bookin
             </p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground mb-1">{role === "guide" ? "Payout" : "Total Paid"}</p>
-            <p className={`font-semibold ${role === "guide" ? "text-brand-emerald" : ""}`}>
+            <p className="text-sm text-muted-foreground mb-1">
+              {role === "guide" ? "Total Tour (Collect 85%)" : "Total Tour Price"}
+            </p>
+            <p className="font-semibold text-foreground">
               {formatPrice(booking.total_price)}
+            </p>
+            <p className="text-[11px] text-brand-emerald mt-0.5 font-medium">
+              {role === "guide" 
+                ? `Direct Payout: ${formatPrice(Math.round(booking.total_price * 0.85))}` 
+                : `15% Advance Paid (${formatPrice(Math.round(booking.total_price * 0.15))})`}
             </p>
           </div>
         </div>

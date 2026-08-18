@@ -79,6 +79,20 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- Sync any existing auth.users into public.profiles table
+INSERT INTO public.profiles (id, full_name, avatar_url, role, city, hourly_rate, specialties, languages)
+SELECT 
+  id,
+  COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1)),
+  COALESCE(raw_user_meta_data->>'avatar_url', raw_user_meta_data->>'picture', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80'),
+  COALESCE(raw_user_meta_data->>'role', 'traveler'),
+  COALESCE(raw_user_meta_data->>'city', 'Kolkata'),
+  COALESCE((raw_user_meta_data->>'hourly_rate')::int, 500),
+  ARRAY['Local Culture']::text[],
+  ARRAY['English', 'Hindi']::text[]
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
 -- 3. Add new columns to bookings table
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS duration_hours INT DEFAULT 4;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS platform_fee NUMERIC(10, 2);
