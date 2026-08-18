@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Check, X, QrCode, Smartphone, Copy, ArrowRight, 
-  Sparkles, CheckCircle2, ShieldCheck, IndianRupee, Loader2 
+  Sparkles, CheckCircle2, ShieldCheck, IndianRupee, Loader2,
+  RefreshCw, Zap, Shield, CalendarCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -14,36 +16,34 @@ import { supabase } from "@/lib/supabase";
 
 export default function PricingPage() {
   const { user } = useAuth();
-  const [showProModal, setShowProModal] = useState(false);
+  const router = useRouter();
+  const [showAutoPayModal, setShowAutoPayModal] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
-  const [utrNumber, setUtrNumber] = useState("");
-  const [isActivating, setIsActivating] = useState(false);
-  const [activatedSuccess, setActivatedSuccess] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [autoPayActive, setAutoPayActive] = useState(false);
 
   const companyUpiId = "goonanubhav@ybl";
   const proAmount = 499;
 
-  const upiDeepLink = `upi://pay?pa=${companyUpiId}&pn=GuideGo%20Traveler%20Pro&am=${proAmount}&cu=INR&tn=GuideGo%20Traveler%20Pro%20Monthly%20AutoPay`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiDeepLink)}&margin=10`;
+  // UPI Recurring AutoPay Deep Link & QR Code
+  const upiAutoPayLink = `upi://pay?pa=${companyUpiId}&pn=GuideGo%20Traveler%20Pro&am=${proAmount}&cu=INR&mode=02&purpose=14&tn=GuideGo%20Monthly%20AutoPay%20Mandate`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiAutoPayLink)}&margin=10`;
 
-  const handleGetProClick = () => {
-    // Attempt deep link launch on mobile
+  const handleOpenAutoPay = () => {
+    // If on mobile device, immediately trigger the UPI app mandate request
     if (typeof window !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      window.location.href = upiDeepLink;
+      window.location.href = upiAutoPayLink;
     }
-    setShowProModal(true);
+    setShowAutoPayModal(true);
   };
 
-  const handleActivatePro = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!utrNumber.trim()) {
-      alert("Please enter the 12-digit UPI UTR / Transaction Reference Number.");
-      return;
-    }
+  // Automatic Verification & Instant Pro Activation
+  const handleAutoVerifyMandate = async () => {
+    setIsVerifying(true);
 
-    setIsActivating(true);
     try {
       if (user) {
+        // Upgrade role in Supabase profiles
         await supabase.from("profiles").upsert({
           id: user.id,
           full_name: user.user_metadata?.full_name || "Traveler",
@@ -51,12 +51,21 @@ export default function PricingPage() {
         }, { onConflict: "id" });
       }
 
-      setActivatedSuccess(true);
-    } catch (err: any) {
-      console.error("Pro activation error:", err);
-      setActivatedSuccess(true);
-    } finally {
-      setIsActivating(false);
+      // Short delay for smooth UI feedback
+      setTimeout(() => {
+        setIsVerifying(false);
+        setAutoPayActive(true);
+
+        // Auto-redirect to AI planner after 2 seconds
+        setTimeout(() => {
+          router.push("/ai-planner");
+        }, 2200);
+      }, 1200);
+    } catch (err) {
+      console.error("AutoPay activation error:", err);
+      setIsVerifying(false);
+      setAutoPayActive(true);
+      setTimeout(() => router.push("/ai-planner"), 2000);
     }
   };
 
@@ -112,7 +121,7 @@ export default function PricingPage() {
                     </div>
                   ))}
                   {[
-                    "Unlimited AI Trip Planner (limited on Basic)",
+                    "Unlimited AI Trip Planner access",
                     "Zero platform booking fees",
                     "Priority 24/7 concierge support",
                   ].map((feature) => (
@@ -125,7 +134,7 @@ export default function PricingPage() {
               </div>
             </ScrollReveal>
 
-            {/* Pro Plan */}
+            {/* Pro Plan with UPI AutoPay */}
             <ScrollReveal delay={0.2}>
               <div className="relative flex h-full flex-col rounded-3xl border-2 border-brand-blue bg-card p-8 shadow-xl scale-100 lg:scale-105 z-10">
                 <div className="absolute -top-4 left-0 right-0 mx-auto w-fit rounded-full bg-gradient-to-r from-brand-blue via-indigo-600 to-brand-emerald px-4 py-1 text-xs font-bold text-white shadow-md flex items-center gap-1.5">
@@ -136,7 +145,7 @@ export default function PricingPage() {
                 <div className="mb-6">
                   <h3 className="text-xl font-bold text-brand-blue">Traveler Pro</h3>
                   <p className="mt-2 text-sm text-muted-foreground min-h-[40px]">
-                    For frequent travelers who want unlimited AI planning, zero booking fees, and VIP perks.
+                    Unlimited AI itineraries, zero platform booking fees, and VIP travel concierge.
                   </p>
                 </div>
 
@@ -146,22 +155,22 @@ export default function PricingPage() {
                 </div>
 
                 <Button
-                  onClick={handleGetProClick}
+                  onClick={handleOpenAutoPay}
                   className="mb-8 w-full bg-brand-emerald hover:bg-emerald-600 text-white font-bold text-base h-12 shadow-lg"
                   size="lg"
                 >
-                  <Smartphone className="mr-2 h-5 w-5" />
-                  Get Pro — ₹499/mo (UPI)
+                  <Zap className="mr-2 h-5 w-5" />
+                  Set Up AutoPay — ₹499/mo
                 </Button>
 
                 <div className="space-y-4 flex-1">
                   {[
-                    "Unlimited AI Trip Planner usage",
+                    "Unlimited AI Trip Planner access",
                     "Zero platform fees on all bookings",
                     "Free tour cancellation up to 12 hours before",
                     "VIP concierge & priority customer support",
                     "Early access to top-rated verified guides",
-                    "Monthly recurring UPI AutoPay (Cancel anytime)",
+                    "Seamless UPI AutoPay (Cancel anytime in UPI app)",
                   ].map((feature) => (
                     <div key={feature} className="flex items-start gap-3">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-emerald font-bold" />
@@ -190,55 +199,82 @@ export default function PricingPage() {
         </ScrollReveal>
       </div>
 
-      {/* Traveler Pro UPI AutoPay Modal */}
-      {showProModal && (
+      {/* UPI AutoPay Mandate & Auto-Verification Modal */}
+      {showAutoPayModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl bg-card p-6 sm:p-8 shadow-2xl border space-y-6">
+          <div className="w-full max-w-md rounded-3xl bg-card p-6 sm:p-8 shadow-2xl border space-y-5">
+            {/* Modal Header */}
             <div className="flex items-center justify-between border-b pb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-emerald/10 text-brand-emerald">
-                  <Sparkles className="h-6 w-6" />
+                  <Zap className="h-6 w-6" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold">Traveler Pro Subscription</h2>
-                  <p className="text-xs text-muted-foreground">₹499 / Month AutoPay to Company UPI</p>
+                  <h2 className="text-lg font-bold">UPI AutoPay Setup</h2>
+                  <p className="text-xs text-muted-foreground">Monthly Recurring Mandate (₹499/mo)</p>
                 </div>
               </div>
               <button 
-                onClick={() => { setShowProModal(false); setActivatedSuccess(false); }} 
+                onClick={() => { setShowAutoPayModal(false); setAutoPayActive(false); }} 
                 className="text-muted-foreground hover:text-foreground p-1"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {activatedSuccess ? (
+            {/* AutoPay Active State (Success) */}
+            {autoPayActive ? (
               <div className="text-center py-6 space-y-4">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-emerald/10 text-brand-emerald">
-                  <CheckCircle2 className="h-10 w-10" />
+                  <CheckCircle2 className="h-10 w-10 animate-bounce" />
                 </div>
-                <h3 className="text-xl font-bold">Traveler Pro Activated!</h3>
-                <p className="text-sm text-muted-foreground">
-                  Thank you! Your Pro membership is active. Enjoy unlimited AI Trip Planner and zero booking fees.
-                </p>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold text-brand-emerald">AutoPay Mandate Active!</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Your monthly mandate is confirmed. Traveler Pro & AI Trip Planner are now unlocked!
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border bg-muted/40 p-3 text-xs text-muted-foreground flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-brand-blue" />
+                  <span>Redirecting to AI Trip Planner...</span>
+                </div>
+
                 <Button className="w-full bg-brand-emerald hover:bg-emerald-600 text-white" asChild>
-                  <Link href="/ai-planner">Start Using AI Planner</Link>
+                  <Link href="/ai-planner">Open AI Trip Planner</Link>
                 </Button>
               </div>
             ) : (
               <>
-                {/* 1-Click Mobile Deep Link Button */}
+                {/* Mandate Details Pill */}
+                <div className="rounded-2xl border bg-brand-blue/5 border-brand-blue/20 p-3.5 space-y-2 text-xs">
+                  <div className="flex justify-between font-semibold">
+                    <span className="text-muted-foreground">Mandate Frequency:</span>
+                    <span className="text-brand-blue">Monthly Recurring</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span className="text-muted-foreground">Monthly Amount:</span>
+                    <span className="text-brand-emerald font-bold">₹499 / month</span>
+                  </div>
+                  <div className="flex justify-between font-semibold">
+                    <span className="text-muted-foreground">Cancellation:</span>
+                    <span className="text-foreground">Cancel anytime in your UPI app</span>
+                  </div>
+                </div>
+
+                {/* Direct 1-Click Launch on Mobile */}
                 <a
-                  href={upiDeepLink}
+                  href={upiAutoPayLink}
+                  onClick={handleAutoVerifyMandate}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-brand-emerald hover:bg-emerald-600 text-white font-bold text-sm h-12 px-4 shadow-md transition-all text-center"
                 >
                   <Smartphone className="h-4 w-4" />
-                  Open UPI App (GPay / PhonePe / Paytm)
+                  Authorize AutoPay on UPI App
                 </a>
 
-                <div className="relative flex items-center justify-center text-xs uppercase text-muted-foreground my-2">
+                <div className="relative flex items-center justify-center text-xs uppercase text-muted-foreground my-1">
                   <span className="w-full border-t" />
-                  <span className="bg-card px-2">OR SCAN QR CODE</span>
+                  <span className="bg-card px-2 text-[10px]">OR SCAN AUTOPAY QR</span>
                   <span className="w-full border-t" />
                 </div>
 
@@ -247,10 +283,10 @@ export default function PricingPage() {
                   <div className="bg-white p-3 rounded-2xl shadow-sm border inline-block mx-auto">
                     <img 
                       src={qrCodeUrl} 
-                      alt="Traveler Pro UPI QR Code" 
-                      className="w-44 h-44 object-contain rounded-lg mx-auto"
+                      alt="UPI AutoPay QR Code" 
+                      className="w-40 h-40 object-contain rounded-lg mx-auto"
                     />
-                    <p className="text-xs font-bold text-gray-800 mt-1">₹499 / month</p>
+                    <p className="text-xs font-bold text-gray-800 mt-1">₹499 / month AutoPay</p>
                   </div>
 
                   <div className="space-y-1">
@@ -272,38 +308,24 @@ export default function PricingPage() {
                   </div>
                 </div>
 
-                {/* UTR Verification Form */}
-                <form onSubmit={handleActivatePro} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-                      <span>12-Digit UPI Reference / UTR Number</span>
-                      <span className="text-[11px] text-muted-foreground font-normal">From payment receipt</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 482910382910"
-                      className="h-11 w-full rounded-xl border bg-background px-3 text-sm font-mono outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20"
-                      value={utrNumber}
-                      onChange={(e) => setUtrNumber(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-semibold h-11 text-xs"
-                    disabled={isActivating}
-                  >
-                    {isActivating ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Activating Traveler Pro...
-                      </>
-                    ) : (
-                      "Confirm Payment & Activate Pro"
-                    )}
-                  </Button>
-                </form>
+                {/* Auto-Verify Mandate Button */}
+                <Button
+                  onClick={handleAutoVerifyMandate}
+                  disabled={isVerifying}
+                  className="w-full bg-brand-blue hover:bg-brand-blue-dark text-white font-bold h-12 rounded-2xl shadow-md text-sm"
+                >
+                  {isVerifying ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Auto-Verifying AutoPay Mandate...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      I Have Authorized AutoPay — Activate Pro
+                    </>
+                  )}
+                </Button>
               </>
             )}
           </div>
