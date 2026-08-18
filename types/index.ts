@@ -31,6 +31,7 @@ export interface Guide {
   citySlug: string;
   availability: boolean;
   verified: boolean;
+  upiId?: string;
   gallery: string[];
   tourCategories: string[];
 }

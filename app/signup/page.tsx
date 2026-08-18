@@ -29,6 +29,7 @@ function SignupContent() {
     city: "",
     hourlyRate: "",
     specialties: "",
+    upiId: "",
     govDocType: "Aadhaar Card",
     govDocNumber: "",
   });
@@ -122,6 +123,11 @@ function SignupContent() {
 
     // Guide KYC Validation
     if (role === "guide") {
+      if (!formData.upiId.trim() || !formData.upiId.includes("@")) {
+        setError("Please enter a valid Personal UPI ID (e.g. yourname@okhdfcbank or yourname@ybl) to receive your 85% tour payouts.");
+        setIsLoading(false);
+        return;
+      }
       if (!formData.govDocNumber.trim()) {
         setError("Please enter your Government Document / ID Number.");
         setIsLoading(false);
@@ -149,6 +155,7 @@ function SignupContent() {
         metadata.city = formData.city.trim();
         metadata.hourly_rate = formData.hourlyRate ? parseInt(formData.hourlyRate) : 800;
         metadata.specialties = formData.specialties;
+        metadata.upi_id = formData.upiId.trim();
         metadata.gov_doc_type = formData.govDocType;
         metadata.gov_doc_number = formData.govDocNumber.trim();
         metadata.verification_status = "pending_review";
@@ -181,6 +188,7 @@ function SignupContent() {
           city: formData.city || "Kolkata",
           hourly_rate: formData.hourlyRate ? parseInt(formData.hourlyRate) : 800,
           specialties: formData.specialties ? [formData.specialties] : ["Local Culture"],
+          upi_id: role === "guide" ? formData.upiId.trim() : null,
           gov_doc_type: role === "guide" ? formData.govDocType : null,
           gov_doc_number: role === "guide" ? formData.govDocNumber : null,
           gov_doc_url: docFilePreview,
@@ -335,6 +343,28 @@ function SignupContent() {
                           />
                         </div>
                       </div>
+                    </div>
+
+                    {/* Guide Personal UPI ID for 85% Tour Balance */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium flex items-center justify-between">
+                        <span>Your Personal UPI ID (For 85% Tour Payouts)</span>
+                        <span className="text-xs text-brand-emerald font-semibold">Direct Payments</span>
+                      </label>
+                      <div className="relative">
+                        <IndianRupee className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                        <input 
+                          type="text" 
+                          placeholder="e.g. yourname@okhdfcbank or yourname@ybl"
+                          className="h-12 w-full rounded-xl border bg-background pl-10 pr-4 text-sm outline-none transition-all focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 font-mono"
+                          value={formData.upiId}
+                          onChange={(e) => setFormData({ ...formData, upiId: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        When a tour ends, a dynamic QR code with this UPI ID will be generated for the traveler to pay your 85% balance instantly.
+                      </p>
                     </div>
 
                     {/* KYC Document & Live Photo Section */}

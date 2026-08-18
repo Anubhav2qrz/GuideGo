@@ -4,10 +4,12 @@ import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { 
   Navigation, ArrowLeft, Phone, AlertTriangle, Copy, 
-  CheckCircle2, Calendar, Clock, Users, X, Check, Loader2 
+  CheckCircle2, Calendar, Clock, Users, X, Check, Loader2,
+  QrCode, Banknote, IndianRupee
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/providers/auth-provider";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -30,9 +32,12 @@ export default function TrackPage() {
   const params = useParams();
   const router = useRouter();
   const bookingId = params?.bookingId as string;
+  const { user } = useAuth();
   
-  const [guideProfile, setGuideProfile] = useState<{ id: string, full_name: string, avatar_url: string } | null>(null);
+  const [guideProfile, setGuideProfile] = useState<{ id: string, full_name: string, avatar_url: string, upi_id?: string } | null>(null);
   const [bookingDetails, setBookingDetails] = useState<{
+    guide_id: string;
+    traveler_id: string;
     booking_date: string;
     booking_time: string;
     guests: number;
@@ -41,9 +46,11 @@ export default function TrackPage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSOS, setShowSOS] = useState(false);
-  const [showEndTripModal, setShowEndTripModal] = useState(false);
+  const [showEndTourModal, setShowEndTourModal] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"upi" | "cash">("upi");
   const [isEndingTrip, setIsEndingTrip] = useState(false);
   const [copiedLocation, setCopiedLocation] = useState(false);
+  const [copiedUpi, setCopiedUpi] = useState(false);
 
   useEffect(() => {
     async function fetchDetails() {
@@ -51,12 +58,14 @@ export default function TrackPage() {
       
       const { data: booking } = await supabase
         .from('bookings')
-        .select('guide_id, booking_date, booking_time, guests, total_price, status')
+        .select('guide_id, traveler_id, booking_date, booking_time, guests, total_price, status')
         .eq('id', bookingId)
         .single();
         
       if (booking) {
         setBookingDetails({
+          guide_id: booking.guide_id,
+          traveler_id: booking.traveler_id,
           booking_date: booking.booking_date,
           booking_time: booking.booking_time,
           guests: booking.guests,
@@ -66,7 +75,7 @@ export default function TrackPage() {
 
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, avatar_url')
+          .select('full_name, avatar_url, upi_id')
           .eq('id', booking.guide_id)
           .single();
           
@@ -91,7 +100,18 @@ export default function TrackPage() {
     }
   };
 
-  const handleConfirmEndTrip = async () => {
+  const totalPrice = bookingDetails?.total_price || 3200;
+  const advanceAmount = Math.round(totalPrice * 0.15);
+  const remainingBalance = totalPrice - advanceAmount;
+
+  const isGuide = user?.id === bookingDetails?.guide_id || user?.user_metadata?.role === 'guide';
+  const isCompleted = bookingDetails?.status === 'completed';
+
+  const activeUpiId = guideProfile?.upi_id || "goonanubhav@ybl";
+  const upiDeepLink = `upi://pay?pa=${activeUpiId}&pn=${encodeURIComponent(guideProfile?.full_name || "Guide")}&am=${remainingBalance}&cu=INR&tn=GuideGo%20Tour%20Balance`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiDeepLink)}&margin=10`;
+
+  const handleConfirmEndTour = async () => {
     setIsEndingTrip(true);
     try {
       const { error } = await supabase
@@ -101,11 +121,16 @@ export default function TrackPage() {
 
       if (error) throw error;
 
-      // Redirect directly to review page
-      router.push(`/review/${bookingId}`);
+      setBookingDetails((prev) => prev ? { ...prev, status: 'completed' } : null);
+      setShowEndTourModal(false);
+      
+      if (!isGuide) {
+        router.push(`/review/${bookingId}`);
+      }
     } catch (err: any) {
       console.error("Error completing trip:", err);
       alert(err?.message || "Failed to complete trip.");
+    } finally {
       setIsEndingTrip(false);
     }
   };
@@ -117,8 +142,6 @@ export default function TrackPage() {
   if (!guideProfile) {
     return <div className="min-h-screen pt-32 text-center text-destructive">Booking not found or you don&apos;t have access.</div>;
   }
-
-  const isCompleted = bookingDetails?.status === 'completed';
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-muted/20">
@@ -143,20 +166,34 @@ export default function TrackPage() {
             
             {/* Action Buttons */}
             <div className="flex items-center gap-3">
-              {!isCompleted ? (
+              {/* Only the Guide has the authority to End Tour & Collect Remaining 85% */}
+              {isGuide && !isCompleted && (
                 <Button 
-                  onClick={() => setShowEndTripModal(true)}
+                  onClick={() => setShowEndTourModal(true)}
                   className="bg-brand-emerald hover:bg-emerald-600 text-white h-11 px-5 shadow-sm font-semibold"
                 >
-                  <Check className="mr-2 h-4 w-4" />
-                  End Trip
+                  <IndianRupee className="mr-2 h-4 w-4" />
+                  End Tour & Collect {formatPrice(remainingBalance)}
                 </Button>
-              ) : (
+              )}
+
+              {/* Traveler gets review button once tour is ended by guide */}
+              {!isGuide && isCompleted && (
                 <Button asChild className="bg-brand-orange hover:bg-orange-600 text-white h-11 px-5 font-semibold">
                   <Link href={`/review/${bookingId}`}>
                     Leave Review
                   </Link>
                 </Button>
+              )}
+
+              {!isGuide && !isCompleted && (
+                <span className="hidden sm:inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-brand-blue/10 text-brand-blue border border-brand-blue/20">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-blue opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-blue"></span>
+                  </span>
+                  Tour in Progress (Guide will conclude tour)
+                </span>
               )}
 
               <Button 
@@ -196,14 +233,14 @@ export default function TrackPage() {
                   </div>
                 </div>
 
-                {!isCompleted && (
+                {isGuide && !isCompleted && (
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => setShowEndTripModal(true)}
-                    className="text-xs text-brand-emerald border-brand-emerald/30 hover:bg-brand-emerald/10"
+                    onClick={() => setShowEndTourModal(true)}
+                    className="text-xs text-brand-emerald border-brand-emerald/30 hover:bg-brand-emerald/10 font-semibold"
                   >
-                    Finish Tour
+                    Collect {formatPrice(remainingBalance)} & End Tour
                   </Button>
                 )}
               </div>
@@ -242,6 +279,15 @@ export default function TrackPage() {
                     <p className="font-semibold">{bookingDetails?.guests || "—"} People</p>
                   </div>
                 </div>
+                <div className="flex items-center gap-3 pt-3 border-t">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-emerald/10 text-brand-emerald">
+                    <IndianRupee className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">85% Balance Due to Guide</p>
+                    <p className="font-bold text-brand-emerald">{formatPrice(remainingBalance)}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -273,52 +319,144 @@ export default function TrackPage() {
         </div>
       </div>
 
-      {/* End Trip Confirmation Modal */}
-      {showEndTripModal && (
+      {/* Guide End Tour & Collect 85% Payment Modal */}
+      {showEndTourModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl bg-card p-8 shadow-2xl border">
-            <div className="flex items-center justify-between mb-4">
+          <div className="w-full max-w-lg rounded-3xl bg-card p-6 sm:p-8 shadow-2xl border space-y-6">
+            <div className="flex items-center justify-between border-b pb-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-emerald/10 text-brand-emerald">
-                  <CheckCircle2 className="h-6 w-6" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-emerald/10 text-brand-emerald">
+                  <IndianRupee className="h-6 w-6" />
                 </div>
-                <h2 className="text-xl font-bold">End This Tour?</h2>
+                <div>
+                  <h2 className="text-xl font-bold">End Tour & Collect Payment</h2>
+                  <p className="text-xs text-muted-foreground">Receive your 85% direct payout from the traveler</p>
+                </div>
               </div>
-              <button onClick={() => setShowEndTripModal(false)} className="text-muted-foreground hover:text-foreground">
+              <button onClick={() => setShowEndTourModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <p className="text-sm text-muted-foreground mb-4">
-              Please confirm that your tour with <strong>{guideProfile.full_name}</strong> is complete.
-            </p>
-
-            <div className="rounded-2xl border bg-muted/40 p-4 mb-6 text-xs text-muted-foreground space-y-1.5">
-              <p>• <strong>Remaining Balance:</strong> Ensure you have settled the remaining 85% payment directly with your guide.</p>
-              <p>• <strong>Review:</strong> You will be invited to leave a verified rating & review for your guide.</p>
+            {/* Price Summary Breakdown */}
+            <div className="rounded-2xl border bg-muted/40 p-4 space-y-2 text-sm">
+              <div className="flex justify-between text-muted-foreground text-xs">
+                <span>Total Tour Amount:</span>
+                <span>{formatPrice(totalPrice)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground text-xs">
+                <span>15% Advance (Already Deposited):</span>
+                <span>{formatPrice(advanceAmount)}</span>
+              </div>
+              <div className="flex justify-between items-center text-brand-emerald font-bold pt-2 border-t text-base">
+                <span>85% Amount to Collect from Traveler:</span>
+                <span>{formatPrice(remainingBalance)}</span>
+              </div>
             </div>
 
-            <div className="flex gap-3">
+            {/* Payment Method Selector */}
+            <div className="space-y-3">
+              <label className="text-xs font-semibold text-foreground">Select Payment Method</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("upi")}
+                  className={`flex items-center justify-center gap-2 rounded-xl p-3 border text-sm font-semibold transition-all ${
+                    paymentMode === "upi"
+                      ? "border-brand-emerald bg-brand-emerald/10 text-brand-emerald ring-2 ring-brand-emerald/20"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <QrCode className="h-4 w-4" />
+                  Show UPI QR Code
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("cash")}
+                  className={`flex items-center justify-center gap-2 rounded-xl p-3 border text-sm font-semibold transition-all ${
+                    paymentMode === "cash"
+                      ? "border-brand-emerald bg-brand-emerald/10 text-brand-emerald ring-2 ring-brand-emerald/20"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <Banknote className="h-4 w-4" />
+                  Accept Cash ({formatPrice(remainingBalance)})
+                </button>
+              </div>
+            </div>
+
+            {/* Mode 1: Dynamic QR Code */}
+            {paymentMode === "upi" && (
+              <div className="rounded-2xl border border-brand-emerald/30 bg-brand-emerald/5 p-5 text-center space-y-4">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Ask the traveler to scan this QR code with Google Pay, PhonePe, or Paytm:
+                </p>
+
+                <div className="bg-white p-3 rounded-2xl shadow-sm border inline-block mx-auto">
+                  <img 
+                    src={qrCodeUrl} 
+                    alt="Guide UPI QR Code" 
+                    className="w-44 h-44 object-contain rounded-lg mx-auto"
+                  />
+                  <p className="text-[11px] font-bold text-gray-700 mt-1">Amount: {formatPrice(remainingBalance)}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Receiving to UPI ID:</p>
+                  <div className="inline-flex items-center gap-2 bg-background border px-3 py-1.5 rounded-xl font-mono text-xs font-semibold">
+                    <span>{activeUpiId}</span>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(activeUpiId);
+                        setCopiedUpi(true);
+                        setTimeout(() => setCopiedUpi(false), 2000);
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {copiedUpi ? <Check className="h-3.5 w-3.5 text-brand-emerald" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Cash Payment */}
+            {paymentMode === "cash" && (
+              <div className="rounded-2xl border border-brand-emerald/30 bg-brand-emerald/5 p-5 text-center space-y-3">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-emerald/10 text-brand-emerald">
+                  <Banknote className="h-7 w-7" />
+                </div>
+                <h4 className="font-bold text-base">Cash Collection</h4>
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                  Please collect <strong>{formatPrice(remainingBalance)}</strong> in cash directly from your traveler before marking the tour as completed.
+                </p>
+              </div>
+            )}
+
+            {/* Confirm & End Tour Button */}
+            <div className="flex gap-3 pt-2">
               <Button 
                 variant="outline" 
                 className="flex-1" 
-                onClick={() => setShowEndTripModal(false)}
+                onClick={() => setShowEndTourModal(false)}
                 disabled={isEndingTrip}
               >
                 Cancel
               </Button>
               <Button 
                 className="flex-1 bg-brand-emerald hover:bg-emerald-600 text-white font-semibold"
-                onClick={handleConfirmEndTrip}
+                onClick={handleConfirmEndTour}
                 disabled={isEndingTrip}
               >
                 {isEndingTrip ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Finishing...
+                    Completing...
                   </>
                 ) : (
-                  "Confirm & End Trip"
+                  `Payment Received (${formatPrice(remainingBalance)}) — Complete Tour`
                 )}
               </Button>
             </div>

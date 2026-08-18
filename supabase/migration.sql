@@ -28,6 +28,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS gov_doc_number TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS gov_doc_url TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS selfie_url TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'verified';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS upi_id TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- 3. Row Level Security for profiles

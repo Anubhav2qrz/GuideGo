@@ -357,6 +357,8 @@ function GuideDashboard({
                       <GuideTracker 
                         guideId={userId} 
                         bookingId={booking.id} 
+                        totalPrice={booking.total_price}
+                        guideName={userName}
                         bookingStatus={booking.status}
                         onStatusChange={onRefresh}
                       />
@@ -519,7 +521,8 @@ function BookingCard({
               </Button>
             )}
 
-            {isUpcoming(booking) && (
+            {/* Only the Guide has the button to End the Trip */}
+            {role === "guide" && isUpcoming(booking) && (
               <Button 
                 variant="outline"
                 size="sm" 

@@ -12,17 +12,18 @@ export interface SupabaseProfile {
   id: string;
   full_name: string;
   avatar_url: string;
-  cover_image: string;
-  bio: string;
-  languages: string[] | null;
-  rating: number;
-  reviews: number;
-  experience: number;
-  hourly_rate: number;
-  specialties: string[] | null;
-  city: string;
-  verified: boolean;
-  role: string;
+  cover_image?: string;
+  bio?: string;
+  languages?: string[];
+  rating?: number;
+  reviews?: number;
+  experience?: number;
+  hourly_rate?: number;
+  specialties?: string[];
+  city?: string;
+  verified?: boolean;
+  role?: string;
+  upi_id?: string;
 }
 
 /**
@@ -48,6 +49,7 @@ export function mapProfileToGuide(profile: SupabaseProfile): Guide {
     citySlug: (profile.city || "unknown").toLowerCase().replace(/\s+/g, "-"),
     availability: true,
     verified: profile.verified || false,
+    upiId: profile.upi_id,
     gallery: [],
     tourCategories: [],
   };
