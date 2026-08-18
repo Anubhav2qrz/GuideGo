@@ -78,15 +78,19 @@ function SignupContent() {
     setIsCameraActive(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }
+        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      }, 100);
     } catch (err: any) {
       console.error("Camera access error:", err);
-      setCameraError("Camera access was denied or is not available. You can upload a photo instead.");
+      setCameraError("Camera access was not granted. Please allow camera access in your browser or use the file upload option.");
       setIsCameraActive(false);
     }
   };
@@ -146,6 +150,30 @@ function SignupContent() {
     }
 
     try {
+      // 1. Dispatch KYC Documents directly to Admin Email (goonanubhav@gmail.com)
+      if (role === "guide") {
+        try {
+          await fetch("/api/verify-guide", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fullName: formData.fullName.trim(),
+              email: formData.email.trim(),
+              city: formData.city.trim(),
+              hourlyRate: formData.hourlyRate ? parseInt(formData.hourlyRate) : 800,
+              specialties: formData.specialties,
+              upiId: formData.upiId.trim(),
+              govDocType: formData.govDocType,
+              govDocNumber: formData.govDocNumber.trim(),
+              docImageBase64: docFilePreview,
+              selfieImageBase64: selfiePreview,
+            }),
+          });
+        } catch (emailErr) {
+          console.error("KYC email dispatch notice:", emailErr);
+        }
+      }
+
       const metadata: Record<string, unknown> = {
         full_name: formData.fullName.trim(),
         role: role,
@@ -160,10 +188,7 @@ function SignupContent() {
         metadata.gov_doc_number = formData.govDocNumber.trim();
         metadata.verification_status = "pending_review";
         metadata.verified = false;
-        // Include avatar from live photo if available
-        if (selfiePreview) {
-          metadata.avatar_url = selfiePreview;
-        }
+        metadata.avatar_url = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80";
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -178,12 +203,12 @@ function SignupContent() {
         throw error;
       }
 
-      // If user was created, also upsert profile record
+      // If user was created, upsert profile WITHOUT storing raw documents in database
       if (data?.user) {
         await supabase.from("profiles").upsert({
           id: data.user.id,
           full_name: formData.fullName.trim(),
-          avatar_url: selfiePreview || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80",
+          avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80",
           role: role,
           city: formData.city || "Kolkata",
           hourly_rate: formData.hourlyRate ? parseInt(formData.hourlyRate) : 800,
@@ -191,8 +216,8 @@ function SignupContent() {
           upi_id: role === "guide" ? formData.upiId.trim() : null,
           gov_doc_type: role === "guide" ? formData.govDocType : null,
           gov_doc_number: role === "guide" ? formData.govDocNumber : null,
-          gov_doc_url: docFilePreview,
-          selfie_url: selfiePreview,
+          gov_doc_url: null, // Privacy: Not stored in DB, sent to admin email directly
+          selfie_url: null,  // Privacy: Not stored in DB, sent to admin email directly
           verification_status: role === "guide" ? "pending_review" : "verified",
           verified: false,
         }, { onConflict: "id" });
@@ -454,23 +479,31 @@ function SignupContent() {
                           <span className="text-muted-foreground font-normal text-[11px]">(Matches document photo)</span>
                         </label>
 
-                        {/* Webcam Capture Interface */}
+                        {/* Live Webcam Stream Viewfinder */}
                         {isCameraActive && (
-                          <div className="relative rounded-2xl overflow-hidden bg-black aspect-video max-w-sm mx-auto shadow-md">
+                          <div className="relative rounded-2xl overflow-hidden bg-black aspect-video max-w-sm mx-auto shadow-xl border-2 border-brand-emerald">
                             <video 
                               ref={videoRef} 
                               autoPlay 
                               playsInline 
-                              className="w-full h-full object-cover" 
+                              muted
+                              className="w-full h-full object-cover mirror" 
                             />
+                            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                              </span>
+                              Live Webcam
+                            </div>
                             <div className="absolute bottom-3 inset-x-0 flex justify-center gap-3">
                               <Button 
                                 type="button" 
                                 size="sm" 
                                 onClick={capturePhoto} 
-                                className="bg-brand-emerald hover:bg-emerald-600 text-white text-xs px-4"
+                                className="bg-brand-emerald hover:bg-emerald-600 text-white text-xs px-5 shadow-lg font-bold"
                               >
-                                <Camera className="mr-1.5 h-4 w-4" /> Snap Photo
+                                <Camera className="mr-1.5 h-4 w-4" /> 📸 Snap Photo
                               </Button>
                               <Button 
                                 type="button" 
@@ -521,23 +554,20 @@ function SignupContent() {
                           </div>
                         ) : !isCameraActive && (
                           <div className="grid gap-2 sm:grid-cols-2">
-                            {/* Option 1: Native Camera File Input (Works on all mobile & desktop cameras) */}
-                            <label className="flex items-center justify-center gap-2 rounded-xl border border-brand-blue/40 bg-brand-blue/5 hover:bg-brand-blue/10 text-brand-blue text-xs font-semibold cursor-pointer h-12 px-4 transition-colors">
+                            {/* Option 1: Live Webcam on Screen */}
+                            <Button 
+                              type="button" 
+                              onClick={startCamera}
+                              className="flex items-center justify-center gap-2 rounded-xl bg-brand-blue hover:bg-brand-blue-dark text-white text-xs font-semibold h-12 px-4 shadow-sm"
+                            >
                               <Camera className="h-4 w-4" />
-                              Take Live Photo (Camera)
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                capture="user"
-                                className="hidden" 
-                                onChange={handleSelfieFileUpload} 
-                              />
-                            </label>
+                              Take Live Photo (Webcam)
+                            </Button>
 
                             {/* Option 2: Upload from Device */}
                             <label className="flex items-center justify-center gap-2 rounded-xl border bg-background hover:bg-muted text-xs font-medium cursor-pointer h-12 px-4 transition-colors">
                               <Upload className="h-4 w-4 text-muted-foreground" />
-                              Upload Selfie from Files
+                              Upload Photo from Files
                               <input 
                                 type="file" 
                                 accept="image/*" 
