@@ -25,17 +25,26 @@ export default function LoginPage() {
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
       });
 
       if (error) {
-        throw error;
+        if (error.message.toLowerCase().includes("email not confirmed")) {
+          setError(
+            "Email not confirmed yet. Please click the verification link sent to your email, or disable email confirmation in your Supabase Dashboard."
+          );
+        } else if (error.message.toLowerCase().includes("invalid login credentials")) {
+          setError("Invalid email or password. Please check your credentials or create a new account.");
+        } else {
+          setError(error.message);
+        }
+        return;
       }
 
       router.push("/dashboard");
     } catch (err: any) {
-      setError(err.message || "Invalid email or password.");
+      setError(err?.message || "An unexpected error occurred during sign in.");
     } finally {
       setIsLoading(false);
     }
