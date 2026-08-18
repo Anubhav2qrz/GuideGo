@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { useSearchParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getDefaultAvatar } from "@/lib/utils";
 
 function SignupContent() {
   const searchParams = useSearchParams();
@@ -34,6 +35,9 @@ function SignupContent() {
     govDocNumber: "",
   });
 
+  // Profile Photo Upload State (for both Traveler & Guide)
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState<string | null>(null);
+
   // KYC Verification State for Guides
   const [docFilePreview, setDocFilePreview] = useState<string | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
@@ -42,6 +46,23 @@ function SignupContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Handle Profile Photo Upload
+  const handleProfilePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Profile photo size must be under 5MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setProfilePhotoPreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Handle Document File Picker
   const handleDocFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,6 +171,9 @@ function SignupContent() {
     }
 
     try {
+      // Determine final profile avatar: user uploaded photo OR clean initials avatar
+      const finalAvatarUrl = profilePhotoPreview || getDefaultAvatar(formData.fullName || "User");
+
       // 1. Dispatch KYC Documents directly to Admin Email (goonanubhav@gmail.com)
       if (role === "guide") {
         try {
@@ -177,6 +201,7 @@ function SignupContent() {
       const metadata: Record<string, unknown> = {
         full_name: formData.fullName.trim(),
         role: role,
+        avatar_url: finalAvatarUrl,
       };
 
       if (role === "guide") {
@@ -188,7 +213,6 @@ function SignupContent() {
         metadata.gov_doc_number = formData.govDocNumber.trim();
         metadata.verification_status = "pending_review";
         metadata.verified = false;
-        metadata.avatar_url = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80";
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -203,12 +227,12 @@ function SignupContent() {
         throw error;
       }
 
-      // If user was created, upsert profile WITHOUT storing raw documents in database
+      // If user was created, upsert profile with their uploaded photo / initials
       if (data?.user) {
         await supabase.from("profiles").upsert({
           id: data.user.id,
           full_name: formData.fullName.trim(),
-          avatar_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80",
+          avatar_url: finalAvatarUrl,
           role: role,
           city: formData.city || "Kolkata",
           hourly_rate: formData.hourlyRate ? parseInt(formData.hourlyRate) : 800,
@@ -287,7 +311,49 @@ function SignupContent() {
                 </Button>
               </div>
             ) : (
-              <form className="space-y-4" onSubmit={handleSignup}>
+              <form className="space-y-5" onSubmit={handleSignup}>
+                {/* Profile Photo Upload */}
+                <div className="flex items-center gap-4 p-4 rounded-2xl border bg-muted/30">
+                  <div className="relative h-16 w-16 rounded-full overflow-hidden border-2 border-brand-blue shrink-0 bg-background flex items-center justify-center">
+                    {profilePhotoPreview ? (
+                      <img src={profilePhotoPreview} alt="Profile Preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <img 
+                        src={getDefaultAvatar(formData.fullName || (role === "guide" ? "Guide" : "Traveler"))} 
+                        alt="Default Avatar" 
+                        className="h-full w-full object-cover" 
+                      />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                      <span>Upload Profile Photo</span>
+                      <span className="text-[11px] text-muted-foreground font-normal">(JPG / PNG)</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 rounded-xl border bg-background hover:bg-muted text-xs font-medium cursor-pointer h-9 px-3 transition-colors shadow-sm">
+                        <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{profilePhotoPreview ? "Change Photo" : "Choose Profile Photo"}</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={handleProfilePhotoUpload} 
+                        />
+                      </label>
+                      {profilePhotoPreview && (
+                        <button
+                          type="button"
+                          onClick={() => setProfilePhotoPreview(null)}
+                          className="text-xs text-destructive hover:underline font-medium"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Basic Details */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">

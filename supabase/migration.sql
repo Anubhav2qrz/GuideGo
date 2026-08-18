@@ -66,7 +66,7 @@ BEGIN
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80'),
+    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', 'https://ui-avatars.com/api/?name=' || COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)) || '&background=00458B&color=fff&bold=true'),
     COALESCE(NEW.raw_user_meta_data->>'role', 'traveler'),
     COALESCE(NEW.raw_user_meta_data->>'city', 'Kolkata'),
     COALESCE((NEW.raw_user_meta_data->>'hourly_rate')::int, 500),
@@ -92,7 +92,7 @@ INSERT INTO public.profiles (id, full_name, avatar_url, role, city, hourly_rate,
 SELECT 
   id,
   COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1)),
-  COALESCE(raw_user_meta_data->>'avatar_url', raw_user_meta_data->>'picture', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&q=80'),
+  COALESCE(raw_user_meta_data->>'avatar_url', raw_user_meta_data->>'picture', 'https://ui-avatars.com/api/?name=' || COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1)) || '&background=00458B&color=fff&bold=true'),
   COALESCE(raw_user_meta_data->>'role', 'traveler'),
   COALESCE(raw_user_meta_data->>'city', 'Kolkata'),
   COALESCE((raw_user_meta_data->>'hourly_rate')::int, 500),

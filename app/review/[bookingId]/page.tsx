@@ -152,12 +152,11 @@ export default function ReviewPage() {
 
             {/* Guide Info */}
             <div className="flex items-center gap-4 pb-6 mb-6 border-b">
-              <div className="relative h-16 w-16 rounded-full overflow-hidden">
-                <Image
-                  src={guideProfile.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80"}
+              <div className="relative h-16 w-16 rounded-full overflow-hidden border">
+                <img
+                  src={guideProfile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(guideProfile.full_name)}&background=00458B&color=fff&bold=true`}
                   alt={guideProfile.full_name}
-                  fill
-                  className="object-cover"
+                  className="h-full w-full object-cover"
                 />
               </div>
               <div>

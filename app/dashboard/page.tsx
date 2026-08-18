@@ -11,10 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, getDefaultAvatar } from "@/lib/utils";
 import { useAuth } from "@/components/providers/auth-provider";
 import { GuideTracker } from "@/components/tracking/guide-tracker";
 import { supabase } from "@/lib/supabase";
+import { Upload, Loader2, Check } from "lucide-react";
 
 interface BookingRow {
   id: string;
@@ -498,8 +499,12 @@ function BookingCard({
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t">
           <div className="flex items-center gap-4">
-            <div className="relative h-12 w-12 rounded-full overflow-hidden">
-              <Image src={booking.other_person?.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80"} alt="Avatar" fill className="object-cover" />
+            <div className="relative h-12 w-12 rounded-full overflow-hidden border">
+              <img 
+                src={booking.other_person?.avatar_url || getDefaultAvatar(booking.other_person?.full_name || 'User')} 
+                alt="Avatar" 
+                className="h-full w-full object-cover" 
+              />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">{otherLabel}</p>
@@ -554,38 +559,105 @@ function BookingCard({
 // ---------------------------------------------------------
 function SettingsPanel({ userName }: { userName: string }) {
   const { user } = useAuth();
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const currentAvatar = photoPreview || user?.user_metadata?.avatar_url || getDefaultAvatar(userName);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPhotoPreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSavePhoto = async () => {
+    if (!user || !photoPreview) return;
+    setIsSaving(true);
+    try {
+      await supabase.from("profiles").update({
+        avatar_url: photoPreview,
+      }).eq("id", user.id);
+
+      await supabase.auth.updateUser({
+        data: { avatar_url: photoPreview },
+      });
+
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to update profile photo:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="rounded-3xl border bg-card p-8 shadow-sm space-y-6">
       <h3 className="text-xl font-bold">Account Settings</h3>
+
+      {/* Profile Photo Editor */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border bg-muted/30">
+        <div className="flex items-center gap-4">
+          <div className="relative h-16 w-16 rounded-full overflow-hidden border-2 border-brand-blue shrink-0 bg-background">
+            <img src={currentAvatar} alt="Profile" className="h-full w-full object-cover" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-sm">Profile Picture</h4>
+            <p className="text-xs text-muted-foreground">Upload a real photo of yourself</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="inline-flex items-center gap-2 rounded-xl border bg-background hover:bg-muted text-xs font-semibold cursor-pointer h-10 px-4 transition-colors shadow-sm">
+            <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>{photoPreview ? "Change Photo" : "Upload New Photo"}</span>
+            <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          </label>
+
+          {photoPreview && (
+            <Button 
+              size="sm" 
+              onClick={handleSavePhoto}
+              disabled={isSaving}
+              className="bg-brand-emerald hover:bg-emerald-600 text-white text-xs h-10 px-4"
+            >
+              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedSuccess ? <Check className="h-3.5 w-3.5" /> : "Save Photo"}
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm">
+          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm font-medium">
             {userName}
           </div>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Email</label>
-          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm">
+          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm font-medium">
             {user?.email || "—"}
           </div>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Role</label>
-          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm capitalize">
+          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm capitalize font-medium">
             {user?.user_metadata?.role || "traveler"}
           </div>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Member Since</label>
-          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm">
+          <div className="h-12 flex items-center rounded-xl border bg-muted/50 px-4 text-sm font-medium">
             {user?.created_at ? new Date(user.created_at).toLocaleDateString("en-IN", { year: "numeric", month: "long" }) : "—"}
           </div>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Profile editing coming soon. Contact support@guidego.com for urgent changes.
-      </p>
     </div>
   );
 }

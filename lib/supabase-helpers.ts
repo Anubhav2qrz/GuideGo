@@ -4,8 +4,9 @@
 // ============================================
 
 import { supabase } from "@/lib/supabase";
-import { Guide } from "@/types";
+import { Guide, Review } from "@/types";
 import { guides as mockGuides, reviews as mockReviews } from "@/lib/mock-data";
+import { getDefaultAvatar } from "@/lib/utils";
 
 // ---- Types for raw Supabase profile rows ----
 export interface SupabaseProfile {
@@ -36,7 +37,7 @@ export function mapProfileToGuide(profile: SupabaseProfile): Guide {
     id: profile.id,
     name: profile.full_name,
     slug: profile.id, // Using UUID as slug for real DB entries
-    avatar: profile.avatar_url,
+    avatar: profile.avatar_url || getDefaultAvatar(profile.full_name || "Guide"),
     coverImage: profile.cover_image || "https://images.unsplash.com/photo-1558431382-27e303142255?w=1200&q=80",
     bio: profile.bio || "",
     languages: profile.languages || [],
@@ -128,7 +129,7 @@ export async function fetchReviewsForGuide(guideId: string) {
           id: r.id,
           guideId,
           userName: r.traveler?.full_name || "Anonymous",
-          userAvatar: r.traveler?.avatar_url || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80",
+          userAvatar: r.traveler?.avatar_url || getDefaultAvatar(r.traveler?.full_name || "Traveler"),
           rating: r.rating,
           comment: r.comment || "",
           date: r.created_at?.split("T")[0] || "",

@@ -13,3 +13,8 @@ export function formatPrice(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+export function getDefaultAvatar(name: string = "User"): string {
+  const cleanName = name.trim() || "User";
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=00458B&color=fff&bold=true`;
+}

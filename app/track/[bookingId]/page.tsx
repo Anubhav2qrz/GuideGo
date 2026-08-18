@@ -13,7 +13,7 @@ import { useAuth } from "@/components/providers/auth-provider";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/lib/utils";
+import { formatPrice, getDefaultAvatar } from "@/lib/utils";
 
 // Dynamically import the map to avoid SSR issues with Leaflet
 const LiveMap = dynamic(
@@ -218,8 +218,8 @@ export default function TrackPage() {
             <div className="p-4 bg-card">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full overflow-hidden bg-muted">
-                    <img src={guideProfile.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80"} alt="Guide" className="h-full w-full object-cover" />
+                  <div className="h-10 w-10 rounded-full overflow-hidden bg-muted border">
+                    <img src={guideProfile.avatar_url || getDefaultAvatar(guideProfile.full_name)} alt="Guide" className="h-full w-full object-cover" />
                   </div>
                   <div>
                     <p className="font-semibold text-sm">{guideProfile.full_name}</p>
@@ -294,12 +294,11 @@ export default function TrackPage() {
             <div className="rounded-3xl border bg-card p-6 shadow-sm">
               <h3 className="font-bold mb-4">Your Guide</h3>
               <div className="flex items-center gap-4">
-                <div className="relative h-14 w-14 rounded-full overflow-hidden">
-                  <Image
-                    src={guideProfile.avatar_url || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80"}
+                <div className="relative h-14 w-14 rounded-full overflow-hidden border">
+                  <img
+                    src={guideProfile.avatar_url || getDefaultAvatar(guideProfile.full_name)}
                     alt={guideProfile.full_name}
-                    fill
-                    className="object-cover"
+                    className="h-full w-full object-cover"
                   />
                 </div>
                 <div>
