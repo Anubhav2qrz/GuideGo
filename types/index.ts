@@ -91,11 +91,16 @@ export interface Booking {
   date: string;
   duration: number; // hours
   totalPrice: number;
+  platformFee: number;
   status: BookingStatus;
   tourType: string;
+  paymentId?: string;
+  meetingLocation?: string;
+  specialRequests?: string;
 }
 
 export type BookingStatus =
+  | "payment_pending"
   | "pending"
   | "confirmed"
   | "in-progress"

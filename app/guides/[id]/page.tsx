@@ -1,40 +1,85 @@
 "use client";
 
-import { use } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { 
   Star, MapPin, Clock, BadgeCheck, Languages, Award, 
-  MessageCircle, Camera, Utensils, Mountain, Calendar, ArrowLeft
+  MessageCircle, Camera, Utensils, Mountain, Calendar, ArrowLeft, ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
-import { guides, reviews } from "@/lib/mock-data";
 import { ReviewCard } from "@/components/guides/review-card";
 import { formatPrice } from "@/lib/utils";
+import { fetchGuideById, fetchReviewsForGuide } from "@/lib/supabase-helpers";
+import { Guide, Review } from "@/types";
 
 const specIcons: Record<string, React.ElementType> = {
   "Photography": Camera,
   "Food Tours": Utensils,
+  "Food Walks": Utensils,
   "History": Award,
+  "Historical Tours": Award,
+  "Heritage Tours": Award,
   "Adventure": Mountain,
   "Culture": MessageCircle,
+  "Nightlife": Star,
+  "Spiritual Tours": Star,
+  "Shopping": Star,
+  "Beach Tours": Mountain,
+  "Yoga": Star,
+  "Bollywood": Camera,
 };
 
-export default function GuideProfilePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
-  const guide = guides.find((g) => g.slug === id);
-  const guideReviews = reviews.filter((r) => r.guideId === guide?.id);
+interface ReviewWithVerified extends Review {
+  verified?: boolean;
+}
+
+export default function GuideProfilePage() {
+  const params = useParams();
+  const id = params?.id as string;
+
+  const [guide, setGuide] = useState<Guide | null>(null);
+  const [guideReviews, setGuideReviews] = useState<ReviewWithVerified[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!id) return;
+
+      // Fetch guide — Supabase first, mock fallback
+      const fetchedGuide = await fetchGuideById(id);
+      setGuide(fetchedGuide);
+
+      // Fetch reviews
+      if (fetchedGuide) {
+        const { reviews } = await fetchReviewsForGuide(fetchedGuide.id);
+        setGuideReviews(reviews);
+      }
+
+      setIsLoading(false);
+    }
+    loadData();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen pt-32 pb-16 flex justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-brand-blue/10 animate-pulse" />
+          <p className="text-muted-foreground font-medium">Loading guide profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!guide) {
     return (
       <div className="min-h-screen pt-32 pb-16 text-center">
         <h1 className="text-2xl font-bold">Guide Not Found</h1>
+        <p className="text-muted-foreground mt-2">The guide you&apos;re looking for doesn&apos;t exist or has been removed.</p>
         <Button asChild className="mt-4">
           <Link href="/guides">Back to Guides</Link>
         </Button>
@@ -173,7 +218,17 @@ export default function GuideProfilePage({
                   <StaggerContainer className="grid gap-4 sm:grid-cols-2" staggerDelay={0.05}>
                     {guideReviews.map((review) => (
                       <StaggerItem key={review.id}>
-                        <ReviewCard review={review} />
+                        <div className="relative">
+                          {review.verified && (
+                            <div className="absolute -top-2 -right-2 z-10">
+                              <div className="flex items-center gap-1 rounded-full bg-brand-emerald/10 px-2 py-0.5 text-xs font-medium text-brand-emerald border border-brand-emerald/20">
+                                <ShieldCheck className="h-3 w-3" />
+                                Verified
+                              </div>
+                            </div>
+                          )}
+                          <ReviewCard review={review} />
+                        </div>
                       </StaggerItem>
                     ))}
                   </StaggerContainer>
@@ -227,7 +282,7 @@ export default function GuideProfilePage({
                   </div>
                   
                   <p className="text-xs text-center text-muted-foreground">
-                    You won't be charged yet
+                    You won&apos;t be charged yet
                   </p>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, Suspense } from "react";
-import { Send, ArrowLeft } from "lucide-react";
+import { Send, ArrowLeft, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { supabase } from "@/lib/supabase";
@@ -14,7 +14,23 @@ type Message = {
   sender_id: string;
   receiver_id: string;
   content: string;
+  read?: boolean;
 };
+
+function formatMessageTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "Yesterday";
+  return date.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+}
 
 function MessagesContent() {
   const { user } = useAuth();
@@ -124,7 +140,18 @@ function MessagesContent() {
   };
 
   if (!bookingId) {
-    return <div className="min-h-screen pt-32 text-center">Please select a booking from your dashboard to chat.</div>;
+    return (
+      <div className="min-h-screen pt-24 pb-16 bg-muted/20 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+          <h2 className="text-xl font-bold mb-2">No conversation selected</h2>
+          <p className="text-muted-foreground mb-6">Please select a booking from your dashboard to start a conversation.</p>
+          <Button asChild className="bg-brand-blue text-white">
+            <Link href="/dashboard">Go to Dashboard</Link>
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
@@ -160,33 +187,69 @@ function MessagesContent() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-card border-x p-4 space-y-4 shadow-inner">
+        <div className="flex-1 overflow-y-auto bg-card border-x p-4 space-y-3 shadow-inner">
           {messages.length === 0 ? (
             <div className="h-full flex items-center justify-center text-muted-foreground">
-              No messages yet. Say hello!
+              <div className="text-center">
+                <p className="font-medium">No messages yet</p>
+                <p className="text-sm mt-1">Say hello to start the conversation! 👋</p>
+              </div>
             </div>
           ) : (
-            messages.map((msg) => {
-              const isMe = msg.sender_id === currentUserId;
-              return (
-                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                    isMe 
-                      ? 'bg-brand-blue text-white rounded-br-sm' 
-                      : 'bg-muted/50 border rounded-bl-sm'
-                  }`}>
-                    <p className="text-sm">{msg.content}</p>
+            <>
+              {messages.map((msg, idx) => {
+                const isMe = msg.sender_id === currentUserId;
+                // Show date separator between messages on different days
+                const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                const currentDate = new Date(msg.created_at).toDateString();
+                const prevDate = prevMsg ? new Date(prevMsg.created_at).toDateString() : null;
+                const showDateSeparator = currentDate !== prevDate;
+
+                return (
+                  <div key={msg.id}>
+                    {showDateSeparator && (
+                      <div className="flex items-center gap-4 my-4">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-xs text-muted-foreground font-medium px-2">
+                          {new Date(msg.created_at).toLocaleDateString("en-IN", { 
+                            weekday: "short", month: "short", day: "numeric" 
+                          })}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                    <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[75%] group ${
+                        isMe 
+                          ? 'rounded-2xl rounded-br-sm' 
+                          : 'rounded-2xl rounded-bl-sm'
+                      }`}>
+                        <div className={`px-4 py-2.5 ${
+                          isMe 
+                            ? 'bg-brand-blue text-white' 
+                            : 'bg-muted/50 border'
+                        } rounded-2xl ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}>
+                          <p className="text-sm">{msg.content}</p>
+                        </div>
+                        <p className={`text-[10px] mt-1 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ${
+                          isMe ? 'text-right' : 'text-left'
+                        }`}>
+                          {formatMessageTime(msg.created_at)}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </>
           )}
           <div ref={messagesEndRef} />
         </div>
 
         <div className="bg-card border rounded-b-2xl shadow-sm flex flex-col">
           {sendError && (
-            <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm border-b border-destructive/20">
+            <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm border-b border-destructive/20 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
               {sendError}
             </div>
           )}

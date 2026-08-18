@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
-import { experiences, experienceCategories } from "@/lib/mock-data";
+import { experiences, experienceCategories, guides } from "@/lib/mock-data";
 import { formatPrice } from "@/lib/utils";
 
 export default function ExperienceCategoryPage({
@@ -90,8 +90,11 @@ export default function ExperienceCategoryPage({
                     <Button
                       size="sm"
                       className="bg-brand-blue hover:bg-brand-blue-dark text-white"
+                      asChild
                     >
-                      Book Experience
+                      <Link href={`/book?guide=${guides.find(g => g.name === exp.guideName)?.slug || "explore"}`}>
+                        Book Experience
+                      </Link>
                     </Button>
                   </div>
                 </div>

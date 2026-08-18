@@ -4,12 +4,13 @@ import { Suspense, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Calendar, Clock, Users, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Calendar, Clock, Users, ArrowRight, ArrowLeft, ShieldCheck, CheckCircle2, MessageSquare, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { formatPrice } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/providers/auth-provider";
+import { fetchGuideById } from "@/lib/supabase-helpers";
+import { supabase } from "@/lib/supabase";
 import { Guide } from "@/types";
 
 function BookingContent() {
@@ -26,43 +27,19 @@ function BookingContent() {
   const [time, setTime] = useState("");
   const [guests, setGuests] = useState("2");
   const [hours, setHours] = useState("4");
+  const [specialRequests, setSpecialRequests] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   useEffect(() => {
-    async function fetchGuide() {
+    async function loadGuide() {
       if (!guideId) return;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', guideId)
-        .single();
-        
-      if (data) {
-        setGuide({
-          id: data.id,
-          name: data.full_name,
-          slug: data.id,
-          avatar: data.avatar_url,
-          coverImage: data.cover_image,
-          bio: data.bio,
-          languages: data.languages || [],
-          rating: data.rating,
-          reviewCount: data.reviews,
-          experience: data.experience,
-          hourlyRate: data.hourly_rate,
-          specialties: data.specialties || [],
-          city: data.city,
-          citySlug: data.city.toLowerCase().replace(" ", "-"),
-          availability: true,
-          verified: data.verified,
-          gallery: [],
-          tourCategories: [],
-        });
-      }
+      const fetchedGuide = await fetchGuideById(guideId);
+      setGuide(fetchedGuide);
       setIsLoadingGuide(false);
     }
-    fetchGuide();
+    loadGuide();
   }, [guideId]);
   
   if (isLoadingGuide) {
@@ -70,11 +47,46 @@ function BookingContent() {
   }
   
   if (!guide) {
-    return <div className="min-h-screen pt-32 text-center text-destructive">Guide not found.</div>;
+    return (
+      <div className="min-h-screen pt-32 text-center">
+        <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold text-destructive mb-2">Guide not found</h2>
+        <p className="text-muted-foreground mb-6">The guide you&apos;re trying to book doesn&apos;t exist or has been removed.</p>
+        <Button asChild><Link href="/explore">Browse Destinations</Link></Button>
+      </div>
+    );
   }
 
   const total = guide.hourlyRate * parseInt(hours || "0");
-  const finalTotal = total + (total * 0.1);
+  const platformFee = Math.round(total * 0.1);
+  const finalTotal = total + platformFee;
+
+  // Validate before moving to payment
+  const validateStep1 = (): boolean => {
+    const errors: string[] = [];
+    
+    if (!date) errors.push("Please select a date.");
+    if (!time) errors.push("Please select a start time.");
+    
+    // Prevent booking in the past
+    if (date) {
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (selectedDate < today) {
+        errors.push("Cannot book for a past date.");
+      }
+    }
+    
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
+  const handleContinue = () => {
+    if (validateStep1()) {
+      setStep(2);
+    }
+  };
 
   const handlePayment = async () => {
     if (!user) {
@@ -85,10 +97,10 @@ function BookingContent() {
     setIsProcessing(true);
     setBookingError(null);
     
-    // Simulate payment delay
+    // Simulate payment processing delay
     await new Promise(r => setTimeout(r, 1500));
     
-    // Insert real booking
+    // Insert real booking with enhanced fields
     const { error } = await supabase
       .from('bookings')
       .insert({
@@ -97,8 +109,11 @@ function BookingContent() {
         booking_date: date,
         booking_time: time,
         guests: parseInt(guests),
+        duration_hours: parseInt(hours),
         total_price: finalTotal,
-        status: 'confirmed'
+        platform_fee: platformFee,
+        status: 'confirmed',
+        meeting_location: specialRequests ? `Special requests: ${specialRequests}` : null,
       });
       
     setIsProcessing(false);
@@ -109,6 +124,9 @@ function BookingContent() {
       setStep(3);
     }
   };
+
+  // Minimum date is today
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="min-h-screen bg-muted/20 pt-24 pb-16">
@@ -122,6 +140,29 @@ function BookingContent() {
               </Link>
             </Button>
             <h1 className="text-3xl font-bold tracking-tight">Book Your Experience</h1>
+            
+            {/* Progress Steps */}
+            <div className="flex items-center gap-2 mt-4">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className="flex items-center gap-2">
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors ${
+                    step >= s 
+                      ? "bg-brand-blue text-white" 
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {step > s ? <CheckCircle2 className="h-5 w-5" /> : s}
+                  </div>
+                  {s < 3 && (
+                    <div className={`h-0.5 w-8 sm:w-16 transition-colors ${
+                      step > s ? "bg-brand-blue" : "bg-muted"
+                    }`} />
+                  )}
+                </div>
+              ))}
+              <span className="ml-2 text-sm text-muted-foreground hidden sm:inline">
+                {step === 1 ? "Tour Details" : step === 2 ? "Payment" : "Confirmed!"}
+              </span>
+            </div>
           </div>
         </ScrollReveal>
 
@@ -132,6 +173,17 @@ function BookingContent() {
               {step === 1 ? (
                 <div className="rounded-3xl border bg-card p-6 sm:p-8 shadow-sm">
                   <h2 className="text-xl font-bold mb-6">1. Tour Details</h2>
+                  
+                  {validationErrors.length > 0 && (
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 mb-6 space-y-1">
+                      {validationErrors.map((err, i) => (
+                        <p key={i} className="text-sm text-destructive flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 shrink-0" />
+                          {err}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   
                   <div className="space-y-6">
                     <div className="grid gap-6 sm:grid-cols-2">
@@ -144,6 +196,7 @@ function BookingContent() {
                             className="h-12 w-full rounded-xl border bg-background pl-10 pr-4 text-sm outline-none transition-all focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
+                            min={today}
                           />
                         </div>
                       </div>
@@ -157,11 +210,14 @@ function BookingContent() {
                             onChange={(e) => setTime(e.target.value)}
                           >
                             <option value="">Select time</option>
+                            <option value="07:00:00">07:00 AM</option>
+                            <option value="08:00:00">08:00 AM</option>
                             <option value="09:00:00">09:00 AM</option>
                             <option value="10:00:00">10:00 AM</option>
                             <option value="11:00:00">11:00 AM</option>
                             <option value="14:00:00">02:00 PM</option>
                             <option value="15:00:00">03:00 PM</option>
+                            <option value="16:00:00">04:00 PM</option>
                           </select>
                         </div>
                       </div>
@@ -203,13 +259,27 @@ function BookingContent() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Special Requests */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        Special Requests <span className="text-muted-foreground font-normal">(optional)</span>
+                      </label>
+                      <textarea
+                        className="w-full rounded-xl border bg-background p-4 text-sm outline-none transition-all focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 resize-none"
+                        rows={3}
+                        placeholder="Any dietary restrictions, mobility needs, specific interests, or meeting point preferences..."
+                        value={specialRequests}
+                        onChange={(e) => setSpecialRequests(e.target.value)}
+                      />
+                    </div>
                   </div>
                   
                   <div className="mt-8 flex justify-end">
                     <Button 
                       className="bg-brand-blue hover:bg-brand-blue-dark h-12 px-8 text-white" 
-                      onClick={() => setStep(2)}
-                      disabled={!date || !time}
+                      onClick={handleContinue}
                     >
                       Continue to Payment
                       <ArrowRight className="ml-2 h-4 w-4" />
@@ -231,8 +301,9 @@ function BookingContent() {
                   </div>
                   
                   {bookingError && (
-                    <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 mb-6 text-sm text-destructive">
-                      {bookingError}
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 mb-6 text-sm text-destructive flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 shrink-0" />
+                      <p>{bookingError}</p>
                     </div>
                   )}
                   
@@ -297,6 +368,11 @@ function BookingContent() {
                   <div>
                     <h4 className="font-semibold">{guide.name}</h4>
                     <p className="text-sm text-muted-foreground">{guide.city}</p>
+                    {guide.verified && (
+                      <span className="text-xs text-brand-blue font-medium flex items-center gap-1 mt-0.5">
+                        <ShieldCheck className="h-3 w-3" /> Verified Guide
+                      </span>
+                    )}
                   </div>
                 </div>
                 
@@ -310,6 +386,10 @@ function BookingContent() {
                     <span className="font-medium">{time || "Not selected"}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">Duration</span>
+                    <span className="font-medium">{hours} hours</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Guests</span>
                     <span className="font-medium">{guests}</span>
                   </div>
@@ -321,8 +401,8 @@ function BookingContent() {
                     <span>{formatPrice(total)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Service fee</span>
-                    <span>{formatPrice(total * 0.1)}</span>
+                    <span className="text-muted-foreground">Service fee (10%)</span>
+                    <span>{formatPrice(platformFee)}</span>
                   </div>
                 </div>
                 
@@ -330,6 +410,13 @@ function BookingContent() {
                   <span>Total</span>
                   <span className="text-brand-blue">{formatPrice(finalTotal)}</span>
                 </div>
+
+                {specialRequests && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Special Requests</p>
+                    <p className="text-sm text-foreground">{specialRequests}</p>
+                  </div>
+                )}
               </div>
             </ScrollReveal>
           </div>

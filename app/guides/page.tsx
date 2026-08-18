@@ -8,7 +8,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
 import { GuideCard } from "@/components/guides/guide-card";
 import { cities } from "@/lib/mock-data";
-import { supabase } from "@/lib/supabase";
+import { fetchAllGuides } from "@/lib/supabase-helpers";
 import { Guide } from "@/types";
 
 export default function GuidesPage() {
@@ -19,37 +19,11 @@ export default function GuidesPage() {
   const [guides, setGuides] = useState<Guide[]>([]);
 
   useEffect(() => {
-    async function fetchGuides() {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "guide");
-
-      if (data) {
-        const mappedGuides: Guide[] = data.map((profile) => ({
-          id: profile.id,
-          name: profile.full_name,
-          slug: profile.id, // using ID as slug for MVP
-          avatar: profile.avatar_url,
-          coverImage: profile.cover_image,
-          bio: profile.bio,
-          languages: profile.languages || [],
-          rating: profile.rating,
-          reviewCount: profile.reviews,
-          experience: profile.experience,
-          hourlyRate: profile.hourly_rate,
-          specialties: profile.specialties || [],
-          city: profile.city,
-          citySlug: profile.city.toLowerCase().replace(" ", "-"),
-          availability: true,
-          verified: profile.verified,
-          gallery: [],
-          tourCategories: [],
-        }));
-        setGuides(mappedGuides);
-      }
+    async function loadGuides() {
+      const allGuides = await fetchAllGuides();
+      setGuides(allGuides);
     }
-    fetchGuides();
+    loadGuides();
   }, []);
 
   // Extract unique languages
