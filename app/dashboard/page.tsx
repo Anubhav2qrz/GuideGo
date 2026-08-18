@@ -416,14 +416,21 @@ function BookingCard({
   const handleEndTrip = async () => {
     if (!window.confirm("Are you sure you want to mark this tour as completed?")) return;
     setIsUpdating(true);
-    const { error } = await supabase
-      .from('bookings')
-      .update({ status: 'completed' })
-      .eq('id', booking.id);
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'completed' })
+        .eq('id', booking.id);
 
-    setIsUpdating(false);
-    if (!error) {
+      if (error) {
+        throw error;
+      }
       onRefresh?.();
+    } catch (err: any) {
+      console.error("End trip error:", err);
+      alert(`Failed to end trip: ${err?.message || "Please make sure RLS update policy is enabled in Supabase."}`);
+    } finally {
+      setIsUpdating(false);
     }
   };
   

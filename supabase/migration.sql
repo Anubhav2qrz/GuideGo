@@ -1,5 +1,5 @@
 -- ============================================
--- GuideGo — Database Migration (Safe & Idempotent)
+-- GuideGo — Database Migration (Safe & Complete)
 -- Run this in Supabase SQL Editor
 -- ============================================
 
@@ -100,17 +100,71 @@ SELECT
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
 
--- 6. Add new columns to bookings table
+-- 6. Ensure Bookings Table Structure & RLS
 ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS duration_hours INT DEFAULT 4;
 ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS platform_fee NUMERIC(10, 2);
 ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS payment_id TEXT;
 ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS meeting_location TEXT;
 
--- 7. Add new columns to messages table
+ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own bookings" ON public.bookings;
+CREATE POLICY "Users can view their own bookings"
+  ON public.bookings FOR SELECT
+  USING (auth.uid() = traveler_id OR auth.uid() = guide_id);
+
+DROP POLICY IF EXISTS "Travelers can insert bookings" ON public.bookings;
+CREATE POLICY "Travelers can insert bookings"
+  ON public.bookings FOR INSERT
+  WITH CHECK (auth.uid() = traveler_id);
+
+-- Critical: Allows both traveler and guide to update booking status (e.g. End Trip, In Progress)
+DROP POLICY IF EXISTS "Users can update their own bookings" ON public.bookings;
+CREATE POLICY "Users can update their own bookings"
+  ON public.bookings FOR UPDATE
+  USING (auth.uid() = traveler_id OR auth.uid() = guide_id);
+
+-- 7. Live Locations Table & RLS
+CREATE TABLE IF NOT EXISTS public.live_locations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id UUID REFERENCES public.bookings(id) ON DELETE CASCADE,
+  guide_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  lat DOUBLE PRECISION NOT NULL,
+  lng DOUBLE PRECISION NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_guide_booking UNIQUE (guide_id, booking_id)
+);
+
+ALTER TABLE public.live_locations ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view live locations for active bookings" ON public.live_locations;
+CREATE POLICY "Anyone can view live locations for active bookings"
+  ON public.live_locations FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Guides can update their live locations" ON public.live_locations;
+CREATE POLICY "Guides can update their live locations"
+  ON public.live_locations FOR ALL
+  USING (auth.uid() = guide_id)
+  WITH CHECK (auth.uid() = guide_id);
+
+-- 8. Messages Table & RLS
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS read BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS booking_id UUID REFERENCES public.bookings(id);
 
--- 8. Create reviews table
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own messages" ON public.messages;
+CREATE POLICY "Users can view their own messages"
+  ON public.messages FOR SELECT
+  USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
+
+DROP POLICY IF EXISTS "Users can send messages" ON public.messages;
+CREATE POLICY "Users can send messages"
+  ON public.messages FOR INSERT
+  WITH CHECK (auth.uid() = sender_id);
+
+-- 9. Reviews Table & RLS
 CREATE TABLE IF NOT EXISTS public.reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id UUID UNIQUE REFERENCES public.bookings(id),
@@ -121,7 +175,6 @@ CREATE TABLE IF NOT EXISTS public.reviews (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS on reviews
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;
@@ -145,7 +198,7 @@ CREATE POLICY "Travelers can insert reviews for their bookings"
 CREATE INDEX IF NOT EXISTS idx_reviews_guide_id ON public.reviews(guide_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_booking_id ON public.reviews(booking_id);
 
--- 9. Auto-update guide rating when a review is added
+-- 10. Auto-update guide rating when a review is added
 CREATE OR REPLACE FUNCTION public.update_guide_rating()
 RETURNS TRIGGER AS $$
 BEGIN
