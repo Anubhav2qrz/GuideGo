@@ -214,17 +214,17 @@ function SignupContent() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-16 flex items-center justify-center bg-muted/20">
+    <div className="min-h-screen pt-32 pb-16 flex items-center justify-center bg-muted/20">
       <div className={`mx-auto w-full ${role === "guide" ? "max-w-2xl" : "max-w-md"} px-4 sm:px-6 transition-all`}>
         <ScrollReveal>
-          <div className="rounded-3xl border bg-card p-6 sm:p-8 shadow-lg">
+          <div className="rounded-3xl border bg-card p-6 sm:p-8 shadow-lg mt-4">
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
                 {role === "guide" ? "Apply as a Verified Local Guide" : "Create an Account"}
               </h1>
-              <p className="text-sm text-muted-foreground mt-2">
+              <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
                 {role === "guide" 
-                  ? "Share your city with travelers. Submit your government ID & live photo for verified badge."
+                  ? "Share your city with travelers. Submit your government ID & live photo to earn your verified badge."
                   : "Join our community of travelers and local experts"}
               </p>
             </div>
@@ -426,7 +426,7 @@ function SignupContent() {
 
                         {/* Webcam Capture Interface */}
                         {isCameraActive && (
-                          <div className="relative rounded-2xl overflow-hidden bg-black aspect-video max-w-sm mx-auto">
+                          <div className="relative rounded-2xl overflow-hidden bg-black aspect-video max-w-sm mx-auto shadow-md">
                             <video 
                               ref={videoRef} 
                               autoPlay 
@@ -440,7 +440,7 @@ function SignupContent() {
                                 onClick={capturePhoto} 
                                 className="bg-brand-emerald hover:bg-emerald-600 text-white text-xs px-4"
                               >
-                                <Camera className="mr-1.5 h-4 w-4" /> Capture Photo
+                                <Camera className="mr-1.5 h-4 w-4" /> Snap Photo
                               </Button>
                               <Button 
                                 type="button" 
@@ -455,14 +455,23 @@ function SignupContent() {
                           </div>
                         )}
 
-                        {cameraError && (
-                          <p className="text-xs text-destructive bg-destructive/10 p-2 rounded-lg">{cameraError}</p>
+                        {cameraError && !isCameraActive && (
+                          <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive flex items-center justify-between">
+                            <span>{cameraError}</span>
+                            <button 
+                              type="button" 
+                              onClick={() => setCameraError(null)} 
+                              className="text-destructive/80 hover:text-destructive text-[11px] font-semibold underline ml-2 shrink-0"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
                         )}
 
                         {selfiePreview ? (
                           <div className="relative rounded-xl border bg-card p-3 flex items-center justify-between max-w-sm">
                             <div className="flex items-center gap-3">
-                              <img src={selfiePreview} alt="Selfie Preview" className="h-14 w-14 object-cover rounded-full border-2 border-brand-emerald" />
+                              <img src={selfiePreview} alt="Selfie Preview" className="h-14 w-14 object-cover rounded-full border-2 border-brand-emerald shadow-sm" />
                               <div>
                                 <p className="text-xs font-semibold">Live Photo Captured</p>
                                 <p className="text-[11px] text-brand-emerald flex items-center gap-1 font-medium">
@@ -474,31 +483,34 @@ function SignupContent() {
                               type="button" 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => { setSelfiePreview(null); startCamera(); }}
+                              onClick={() => { setSelfiePreview(null); setCameraError(null); }}
                               className="text-xs text-muted-foreground hover:text-foreground"
                             >
                               <RefreshCw className="h-3.5 w-3.5 mr-1" /> Retake
                             </Button>
                           </div>
                         ) : !isCameraActive && (
-                          <div className="flex gap-3">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              onClick={startCamera}
-                              className="flex-1 text-xs h-11 border-brand-blue/30 text-brand-blue hover:bg-brand-blue/10"
-                            >
-                              <Camera className="mr-2 h-4 w-4" />
-                              Take Live Photo with Camera
-                            </Button>
-
-                            <label className="flex-1 inline-flex items-center justify-center rounded-xl border bg-background hover:bg-muted text-xs font-medium cursor-pointer h-11 px-3">
-                              <Upload className="mr-2 h-4 w-4 text-muted-foreground" />
-                              Upload Selfie
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {/* Option 1: Native Camera File Input (Works on all mobile & desktop cameras) */}
+                            <label className="flex items-center justify-center gap-2 rounded-xl border border-brand-blue/40 bg-brand-blue/5 hover:bg-brand-blue/10 text-brand-blue text-xs font-semibold cursor-pointer h-12 px-4 transition-colors">
+                              <Camera className="h-4 w-4" />
+                              Take Live Photo (Camera)
                               <input 
                                 type="file" 
                                 accept="image/*" 
                                 capture="user"
+                                className="hidden" 
+                                onChange={handleSelfieFileUpload} 
+                              />
+                            </label>
+
+                            {/* Option 2: Upload from Device */}
+                            <label className="flex items-center justify-center gap-2 rounded-xl border bg-background hover:bg-muted text-xs font-medium cursor-pointer h-12 px-4 transition-colors">
+                              <Upload className="h-4 w-4 text-muted-foreground" />
+                              Upload Selfie from Files
+                              <input 
+                                type="file" 
+                                accept="image/*" 
                                 className="hidden" 
                                 onChange={handleSelfieFileUpload} 
                               />
