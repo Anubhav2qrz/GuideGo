@@ -284,6 +284,26 @@ function GuideDashboard({
       <div className="space-y-6">
         {activeTab === "tours" && (
           <>
+            {/* Guide KYC Status Banner */}
+            <div className="rounded-2xl border border-brand-blue/30 bg-brand-blue/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-brand-blue/10 text-brand-blue flex items-center justify-center shrink-0">
+                  <Settings className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <span>Identity & Document Verification</span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-emerald/10 text-brand-emerald border border-brand-emerald/20">
+                      Documents Submitted
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Your Government ID & Live Photo are submitted. Verified badge displays on your public tours.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Stats Row */}
             <ScrollReveal delay={0.2}>
               <div className="grid gap-4 sm:grid-cols-3">
