@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Calendar, MapPin, Clock, ArrowRight, Settings, CreditCard, Heart, History, LogOut, Users, IndianRupee, TrendingUp, Star, MessageCircle, CheckCircle2 } from "lucide-react";
+import { 
+  Calendar, MapPin, Clock, ArrowRight, Settings, 
+  Heart, History, LogOut, Users, IndianRupee, TrendingUp, 
+  Star, MessageCircle, CheckCircle2 
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +70,15 @@ function isPast(booking: BookingRow) {
 // ---------------------------------------------------------
 // TRAVELER DASHBOARD COMPONENT
 // ---------------------------------------------------------
-function TravelerDashboard({ bookings, userName }: { bookings: BookingRow[], userName: string }) {
+function TravelerDashboard({ 
+  bookings, 
+  userName,
+  onRefresh
+}: { 
+  bookings: BookingRow[]; 
+  userName: string;
+  onRefresh?: () => void;
+}) {
   const [activeTab, setActiveTab] = useState("upcoming");
 
   const tabs = [
@@ -136,7 +148,7 @@ function TravelerDashboard({ bookings, userName }: { bookings: BookingRow[], use
             ) : (
               upcomingBookings.map((booking, idx) => (
                 <ScrollReveal key={booking.id} delay={0.2 + (idx * 0.1)}>
-                  <BookingCard booking={booking} role="traveler" />
+                  <BookingCard booking={booking} role="traveler" onRefresh={onRefresh} />
                 </ScrollReveal>
               ))
             )}
@@ -154,7 +166,12 @@ function TravelerDashboard({ bookings, userName }: { bookings: BookingRow[], use
             ) : (
               pastBookings.map((booking, idx) => (
                 <ScrollReveal key={booking.id} delay={0.2 + (idx * 0.1)}>
-                  <BookingCard booking={booking} role="traveler" showReviewCTA={booking.status === "completed"} />
+                  <BookingCard 
+                    booking={booking} 
+                    role="traveler" 
+                    showReviewCTA={booking.status === "completed"} 
+                    onRefresh={onRefresh}
+                  />
                 </ScrollReveal>
               ))
             )}
@@ -204,7 +221,17 @@ function TravelerDashboard({ bookings, userName }: { bookings: BookingRow[], use
 // ---------------------------------------------------------
 // GUIDE DASHBOARD COMPONENT
 // ---------------------------------------------------------
-function GuideDashboard({ bookings, userName, userId }: { bookings: BookingRow[], userName: string, userId: string }) {
+function GuideDashboard({ 
+  bookings, 
+  userName, 
+  userId,
+  onRefresh
+}: { 
+  bookings: BookingRow[]; 
+  userName: string; 
+  userId: string;
+  onRefresh?: () => void;
+}) {
   const [activeTab, setActiveTab] = useState("tours");
 
   const tabs = [
@@ -304,10 +331,17 @@ function GuideDashboard({ bookings, userName, userId }: { bookings: BookingRow[]
             ) : (
               bookings.map((booking, idx) => (
                 <ScrollReveal key={booking.id} delay={0.3 + (idx * 0.1)}>
-                  <BookingCard booking={booking} role="guide" />
-                  <div className="mt-4">
-                    <GuideTracker guideId={userId} bookingId={booking.id} />
-                  </div>
+                  <BookingCard booking={booking} role="guide" onRefresh={onRefresh} />
+                  {isUpcoming(booking) && (
+                    <div className="mt-4">
+                      <GuideTracker 
+                        guideId={userId} 
+                        bookingId={booking.id} 
+                        bookingStatus={booking.status}
+                        onStatusChange={onRefresh}
+                      />
+                    </div>
+                  )}
                 </ScrollReveal>
               ))
             )}
@@ -345,8 +379,33 @@ function GuideDashboard({ bookings, userName, userId }: { bookings: BookingRow[]
 // ---------------------------------------------------------
 // SHARED: BOOKING CARD COMPONENT
 // ---------------------------------------------------------
-function BookingCard({ booking, role, showReviewCTA = false }: { booking: BookingRow, role: "traveler" | "guide", showReviewCTA?: boolean }) {
+function BookingCard({ 
+  booking, 
+  role, 
+  showReviewCTA = false,
+  onRefresh
+}: { 
+  booking: BookingRow; 
+  role: "traveler" | "guide"; 
+  showReviewCTA?: boolean;
+  onRefresh?: () => void;
+}) {
   const otherLabel = role === "traveler" ? "Your Guide" : "Your Traveler";
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleEndTrip = async () => {
+    if (!window.confirm("Are you sure you want to mark this tour as completed?")) return;
+    setIsUpdating(true);
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status: 'completed' })
+      .eq('id', booking.id);
+
+    setIsUpdating(false);
+    if (!error) {
+      onRefresh?.();
+    }
+  };
   
   return (
     <div className="rounded-3xl border bg-card overflow-hidden shadow-sm">
@@ -419,22 +478,36 @@ function BookingCard({ booking, role, showReviewCTA = false }: { booking: Bookin
             </div>
           </div>
           
-          <div className="flex gap-3 w-full sm:w-auto">
-            <Button variant="outline" className="flex-1 sm:flex-none" asChild>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-none" asChild>
               <Link href={`/messages?booking=${booking.id}`}>
-                <MessageCircle className="mr-2 h-4 w-4" />
+                <MessageCircle className="mr-1.5 h-4 w-4" />
                 Message
               </Link>
             </Button>
+
             {role === "traveler" && isUpcoming(booking) && (
-              <Button className="flex-1 sm:flex-none bg-brand-emerald hover:bg-emerald-600 text-white" asChild>
+              <Button size="sm" className="flex-1 sm:flex-none bg-brand-emerald hover:bg-emerald-600 text-white" asChild>
                 <Link href={`/track/${booking.id}`}>Live Map</Link>
               </Button>
             )}
+
+            {isUpcoming(booking) && (
+              <Button 
+                variant="outline"
+                size="sm" 
+                onClick={handleEndTrip}
+                disabled={isUpdating}
+                className="flex-1 sm:flex-none border-brand-emerald/40 text-brand-emerald hover:bg-brand-emerald/10 font-medium"
+              >
+                End Trip
+              </Button>
+            )}
+
             {showReviewCTA && (
-              <Button className="flex-1 sm:flex-none bg-brand-orange hover:bg-orange-600 text-white" asChild>
+              <Button size="sm" className="flex-1 sm:flex-none bg-brand-orange hover:bg-orange-600 text-white" asChild>
                 <Link href={`/review/${booking.id}`}>
-                  <Star className="mr-2 h-4 w-4" />
+                  <Star className="mr-1.5 h-4 w-4" />
                   Leave Review
                 </Link>
               </Button>
@@ -498,30 +571,30 @@ export default function DashboardPage() {
   const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || "Traveler";
   const isGuide = user?.user_metadata?.role === 'guide';
 
-  useEffect(() => {
-    async function fetchBookings() {
-      if (!user) return;
-      
-      const column = isGuide ? 'guide_id' : 'traveler_id';
-      const foreignTable = isGuide ? 'traveler_id' : 'guide_id'; 
-      
-      const { data, error } = await supabase
-        .from('bookings')
-        .select(`
-          *,
-          other_person:profiles!${foreignTable}(id, full_name, avatar_url, city, hourly_rate)
-        `)
-        .eq(column, user.id)
-        .order('created_at', { ascending: false });
-
-      if (data) {
-        setBookings(data);
-      }
-      setLoading(false);
-    }
+  const fetchBookings = useCallback(async () => {
+    if (!user) return;
     
-    fetchBookings();
+    const column = isGuide ? 'guide_id' : 'traveler_id';
+    const foreignTable = isGuide ? 'traveler_id' : 'guide_id'; 
+    
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        other_person:profiles!${foreignTable}(id, full_name, avatar_url, city, hourly_rate)
+      `)
+      .eq(column, user.id)
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      setBookings(data);
+    }
+    setLoading(false);
   }, [user, isGuide]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   if (loading) {
     return (
@@ -542,9 +615,18 @@ export default function DashboardPage() {
         </ScrollReveal>
 
         {isGuide ? (
-          <GuideDashboard bookings={bookings} userName={userName} userId={user!.id} />
+          <GuideDashboard 
+            bookings={bookings} 
+            userName={userName} 
+            userId={user!.id} 
+            onRefresh={fetchBookings}
+          />
         ) : (
-          <TravelerDashboard bookings={bookings} userName={userName} />
+          <TravelerDashboard 
+            bookings={bookings} 
+            userName={userName} 
+            onRefresh={fetchBookings}
+          />
         )}
       </div>
     </div>

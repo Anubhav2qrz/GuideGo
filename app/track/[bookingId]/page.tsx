@@ -1,8 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useParams } from "next/navigation";
-import { Navigation, ArrowLeft, Phone, AlertTriangle, Copy, CheckCircle2, Calendar, Clock, Users, X } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { 
+  Navigation, ArrowLeft, Phone, AlertTriangle, Copy, 
+  CheckCircle2, Calendar, Clock, Users, X, Check, Loader2 
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -25,6 +28,7 @@ const LiveMap = dynamic(
 
 export default function TrackPage() {
   const params = useParams();
+  const router = useRouter();
   const bookingId = params?.bookingId as string;
   
   const [guideProfile, setGuideProfile] = useState<{ id: string, full_name: string, avatar_url: string } | null>(null);
@@ -37,6 +41,8 @@ export default function TrackPage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSOS, setShowSOS] = useState(false);
+  const [showEndTripModal, setShowEndTripModal] = useState(false);
+  const [isEndingTrip, setIsEndingTrip] = useState(false);
   const [copiedLocation, setCopiedLocation] = useState(false);
 
   useEffect(() => {
@@ -85,13 +91,34 @@ export default function TrackPage() {
     }
   };
 
+  const handleConfirmEndTrip = async () => {
+    setIsEndingTrip(true);
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'completed' })
+        .eq('id', bookingId);
+
+      if (error) throw error;
+
+      // Redirect directly to review page
+      router.push(`/review/${bookingId}`);
+    } catch (err: any) {
+      console.error("Error completing trip:", err);
+      alert(err?.message || "Failed to complete trip.");
+      setIsEndingTrip(false);
+    }
+  };
+
   if (loading) {
-    return <div className="min-h-screen pt-32 text-center">Loading tracking details...</div>;
+    return <div className="min-h-screen pt-32 text-center text-muted-foreground">Loading tracking details...</div>;
   }
   
   if (!guideProfile) {
     return <div className="min-h-screen pt-32 text-center text-destructive">Booking not found or you don&apos;t have access.</div>;
   }
+
+  const isCompleted = bookingDetails?.status === 'completed';
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-muted/20">
@@ -103,8 +130,8 @@ export default function TrackPage() {
               Back to Dashboard
             </Link>
           </Button>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 mb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-emerald/10 text-brand-emerald">
                 <Navigation className="h-5 w-5" />
               </div>
@@ -114,15 +141,33 @@ export default function TrackPage() {
               </div>
             </div>
             
-            {/* SOS Button */}
-            <Button 
-              variant="destructive" 
-              className="h-12 px-6 shadow-lg"
-              onClick={() => setShowSOS(true)}
-            >
-              <AlertTriangle className="mr-2 h-5 w-5" />
-              SOS Emergency
-            </Button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              {!isCompleted ? (
+                <Button 
+                  onClick={() => setShowEndTripModal(true)}
+                  className="bg-brand-emerald hover:bg-emerald-600 text-white h-11 px-5 shadow-sm font-semibold"
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  End Trip
+                </Button>
+              ) : (
+                <Button asChild className="bg-brand-orange hover:bg-orange-600 text-white h-11 px-5 font-semibold">
+                  <Link href={`/review/${bookingId}`}>
+                    Leave Review
+                  </Link>
+                </Button>
+              )}
+
+              <Button 
+                variant="destructive" 
+                className="h-11 px-5 shadow-lg"
+                onClick={() => setShowSOS(true)}
+              >
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                SOS
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -150,6 +195,17 @@ export default function TrackPage() {
                     </p>
                   </div>
                 </div>
+
+                {!isCompleted && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowEndTripModal(true)}
+                    className="text-xs text-brand-emerald border-brand-emerald/30 hover:bg-brand-emerald/10"
+                  >
+                    Finish Tour
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -202,7 +258,9 @@ export default function TrackPage() {
                 </div>
                 <div>
                   <p className="font-semibold">{guideProfile.full_name}</p>
-                  <p className="text-xs text-brand-emerald font-medium">Currently on tour</p>
+                  <p className="text-xs text-brand-emerald font-medium">
+                    {isCompleted ? "Tour completed" : "Currently on tour"}
+                  </p>
                 </div>
               </div>
               <Button variant="outline" className="w-full mt-4" asChild>
@@ -214,6 +272,59 @@ export default function TrackPage() {
           </div>
         </div>
       </div>
+
+      {/* End Trip Confirmation Modal */}
+      {showEndTripModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl bg-card p-8 shadow-2xl border">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-emerald/10 text-brand-emerald">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <h2 className="text-xl font-bold">End This Tour?</h2>
+              </div>
+              <button onClick={() => setShowEndTripModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Please confirm that your tour with <strong>{guideProfile.full_name}</strong> is complete.
+            </p>
+
+            <div className="rounded-2xl border bg-muted/40 p-4 mb-6 text-xs text-muted-foreground space-y-1.5">
+              <p>• <strong>Remaining Balance:</strong> Ensure you have settled the remaining 85% payment directly with your guide.</p>
+              <p>• <strong>Review:</strong> You will be invited to leave a verified rating & review for your guide.</p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1" 
+                onClick={() => setShowEndTripModal(false)}
+                disabled={isEndingTrip}
+              >
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1 bg-brand-emerald hover:bg-emerald-600 text-white font-semibold"
+                onClick={handleConfirmEndTrip}
+                disabled={isEndingTrip}
+              >
+                {isEndingTrip ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Finishing...
+                  </>
+                ) : (
+                  "Confirm & End Trip"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SOS Emergency Modal */}
       {showSOS && (
@@ -232,7 +343,6 @@ export default function TrackPage() {
             </div>
 
             <div className="space-y-4">
-              {/* Call Emergency */}
               <a
                 href="tel:112"
                 className="flex items-center gap-4 rounded-2xl border border-destructive/20 bg-destructive/5 p-4 transition-colors hover:bg-destructive/10"
@@ -246,7 +356,6 @@ export default function TrackPage() {
                 </div>
               </a>
 
-              {/* Call Police */}
               <a
                 href="tel:100"
                 className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:bg-muted/50"
@@ -260,7 +369,6 @@ export default function TrackPage() {
                 </div>
               </a>
 
-              {/* Share Location */}
               <button
                 onClick={handleCopyLocation}
                 className="flex w-full items-center gap-4 rounded-2xl border p-4 transition-colors hover:bg-muted/50 text-left"
